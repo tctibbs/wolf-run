@@ -46,7 +46,7 @@ def test_wolf_wakes_with_a_start_then_hops_up_and_wags():
     wags = {tuple(clock.wolf_pose(10.0 + s, 10.0).grid) for s in (1.35, 1.55)}
 
     assert startled.startled
-    assert startled.grid == clock.sprites.WOLF_SLEEP_A
+    assert startled.grid == clock.sprites.WOLF_STARTLED
     assert hopping.lift > 0
     assert wags == {tuple(clock.sprites.WOLF_B), tuple(clock.sprites.WOLF_WAG)}
 
@@ -139,3 +139,12 @@ def clock_pixels(t):
     canvas = FakeCanvas()
     clock.draw_clock(canvas, HALLOWEEN_EVENING, t)
     return canvas.pixels
+
+
+def test_standing_wolf_stays_clear_of_the_prompt():
+    standing = clock.wolf_pose(12.0, primed_at=10.0)
+    head_right = clock.WOLF_X + standing.shift + len(standing.grid[0])
+    prompt_left = (clock.W - clock.text_width(clock.PROMPT, clock.PROMPT_SCALE)) // 2
+
+    ear_and_head_right = head_right - 6  # the snout is below the prompt's baseline
+    assert ear_and_head_right < prompt_left

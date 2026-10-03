@@ -43,6 +43,8 @@ SPECKS = [((i * 61 + 13) % W, i % 3) for i in range(18)]
 MOON = (228, 24, 12)
 
 WOLF_X = 4
+HEAD_X = 35  # where his head sits in the lying sprite, for the Zs and the start
+STANDING_SHIFT = 4  # stands a little forward, but clear of the prompt
 SCENERY = [
     (sprites.STRAW_HUT, 66),
     (sprites.STICK_HOUSE, 116),
@@ -74,6 +76,7 @@ class Pose:
     grid: Grid
     lift: int = 0
     startled: bool = False
+    shift: int = 0
 
 
 @dataclass(frozen=True)
@@ -104,16 +107,17 @@ def wolf_pose(t: float, primed_at: float | None) -> Pose:
         return Pose(sprites.WOLF_SLEEP_B if breathing_in else sprites.WOLF_SLEEP_A)
     since = t - primed_at
     if since < WAKE_UP:
-        return Pose(sprites.WOLF_SLEEP_A, startled=True)
+        return Pose(sprites.WOLF_STARTLED, startled=True)
     if since < ON_HIS_FEET:
-        return Pose(sprites.WOLF_B, lift=3)
+        return Pose(sprites.WOLF_B, lift=3, shift=STANDING_SHIFT)
     wagging = int((since - ON_HIS_FEET) / WAG) % 2
-    return Pose(sprites.WOLF_WAG if wagging else sprites.WOLF_B)
+    grid = sprites.WOLF_WAG if wagging else sprites.WOLF_B
+    return Pose(grid, shift=STANDING_SHIFT)
 
 
 def snores(t: float) -> list[Snore]:
     """Three Zs drifting up from his head, growing as they rise."""
-    head_x, head_y = WOLF_X + 24, GROUND_Y - len(sprites.WOLF_SLEEP_A)
+    head_x, head_y = WOLF_X + HEAD_X, GROUND_Y - len(sprites.WOLF_SLEEP_A)
     rising = []
     for i in range(3):
         p = (t / SNORE_CYCLE + i / 3) % 1
@@ -247,9 +251,9 @@ def _ground(canvas: Canvas, t: float, palette: Palette) -> None:
 def _wolf(canvas: Canvas, t: float, primed_at: float | None, palette: Palette) -> None:
     pose = wolf_pose(t, primed_at)
     top = GROUND_Y - len(pose.grid) - pose.lift
-    paint(canvas, pose.grid, WOLF_X, top, palette.ink, palette.bg)
+    paint(canvas, pose.grid, WOLF_X + pose.shift, top, palette.ink, palette.bg)
     if pose.startled:
-        text(canvas, "!", WOLF_X + 23, top - 14, palette.glow, 2)
+        text(canvas, "!", WOLF_X + HEAD_X - 2, top - 14, palette.glow, 2)
     if primed_at is None:
         for z in snores(t):
             text(canvas, "Z", z.x, z.y, palette.dim, z.scale)
