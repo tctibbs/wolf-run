@@ -1,4 +1,5 @@
 from datetime import datetime
+from itertools import pairwise
 
 import pytest
 
@@ -141,10 +142,19 @@ def clock_pixels(t):
     return canvas.pixels
 
 
-def test_standing_wolf_stays_clear_of_the_prompt():
-    standing = clock.wolf_pose(12.0, primed_at=10.0)
-    head_right = clock.WOLF_X + standing.shift + len(standing.grid[0])
-    prompt_left = (clock.W - clock.text_width(clock.PROMPT, clock.PROMPT_SCALE)) // 2
+def test_wolf_stays_clear_of_the_prompt_whenever_it_shows():
+    prompt_bottom = clock.DATE_Y - 2 + 5 * clock.PROMPT_SCALE
 
-    ear_and_head_right = head_right - 6  # the snout is below the prompt's baseline
-    assert ear_and_head_right < prompt_left
+    for step in range(60):
+        t = 10.0 + step / 15
+        if clock.prompt_visible(t, primed_at=10.0):
+            pose = clock.wolf_pose(t, primed_at=10.0)
+            assert clock.GROUND_Y - len(pose.grid) - pose.lift >= prompt_bottom
+
+
+def test_houses_sit_on_the_ground_without_overlapping():
+    spans = sorted((x, x + len(grid[0])) for grid, x in clock.HOUSES)
+
+    for (_, right), (left, _) in pairwise(spans):
+        assert right < left
+    assert spans[0][0] > clock.WOLF_X + len(clock.sprites.WOLF_SLEEP_A[0])

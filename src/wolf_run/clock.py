@@ -18,7 +18,7 @@ W, H = 256, 150
 GROUND_Y = 120
 DIGIT_SCALE = 6
 DIGIT_TOP = 24
-DATE_Y = 96
+DATE_Y = 88
 PROMPT = "PRESS THE BUTTON TO RUN"
 PROMPT_SCALE = 2
 
@@ -44,14 +44,14 @@ MOON = (228, 24, 12)
 
 WOLF_X = 4
 HEAD_X = 35  # where his head sits in the lying sprite, for the Zs and the start
-STANDING_SHIFT = 4  # stands a little forward, but clear of the prompt
-SCENERY = [
-    (sprites.STRAW_HUT, 66),
-    (sprites.STICK_HOUSE, 116),
-    (sprites.BRICK_HOUSE, 166),
-    (sprites.TOMBSTONE, 230),
+STANDING_SHIFT = 12  # stands up where he lay, instead of jumping backwards
+HOUSES = [
+    (sprites.STRAW_HUT, 58),
+    (sprites.STICK_HOUSE, 104),
+    (sprites.BRICK_HOUSE, 152),
 ]
-PUMPKIN_X = 188
+TOMBSTONE_X = 232
+PUMPKIN_X = 196
 
 BREATH = 3.0
 SNORE_CYCLE = 3.6
@@ -157,7 +157,7 @@ def drip(t: float, index: int) -> tuple[int, int | None]:
     p = (t / DRIP_CYCLE + index * 0.29) % 1
     if p < 0.75:
         return 1 + int(p / 0.75 * 7), None
-    return 1, int((p - 0.75) / 0.25 * 18)
+    return 1, int((p - 0.75) / 0.25 * 10)
 
 
 def draw_clock(
@@ -241,8 +241,10 @@ def _ground(canvas: Canvas, t: float, palette: Palette) -> None:
             canvas.fill(x, GROUND_Y - 1, 3, 1, palette.ink)
         else:
             canvas.fill(x, GROUND_Y + 3 + kind * 3, 3 - kind, 1, palette.soft)
-    for grid, x in SCENERY:
-        paint(canvas, grid, x, GROUND_Y - len(grid), palette.ink, palette.bg)
+    for grid, x in HOUSES:
+        paint(canvas, grid, x, GROUND_Y - len(grid), palette.ink, palette.glow)
+    tomb = sprites.TOMBSTONE
+    paint(canvas, tomb, TOMBSTONE_X, GROUND_Y - len(tomb), palette.ink, palette.bg)
     flicker = palette.glow if int(t * 7) % 5 else palette.dim
     pumpkin = sprites.PUMPKIN
     paint(canvas, pumpkin, PUMPKIN_X, GROUND_Y - len(pumpkin), palette.ink, flicker)
