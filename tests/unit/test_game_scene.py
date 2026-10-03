@@ -85,7 +85,7 @@ def test_the_house_shakes_while_he_eats_inside():
         left = min(
             x
             for (x, y), color in canvas.pixels.items()
-            if color == NIGHT.ink and 100 < y < 118 and x > 100
+            if color == NIGHT.ink and y == 98  # the chimney cap, the top row
         )
         positions.add(left)
 
@@ -135,3 +135,30 @@ def test_grandma_runs_in_the_intro_and_from_each_house():
         canvas = drawn(game)
 
         assert canvas.at(120 + 8, 120 - 12) is not None
+
+
+def test_rummaging_throws_junk_out_of_the_chimney_that_lands_nearby():
+    flying = game_scene.junk(150, 20)
+    landed = game_scene.junk(150, 90)
+
+    assert len(flying) < len(landed) == len(game_scene.JUNK)
+    for grid, x, y in landed:
+        assert y == 120 - len(grid)
+        assert 100 < x < 230
+
+
+def test_rummage_shows_soot_words_then_aha():
+    early = drawn(at(Phase.RUMMAGE, level=2, phase_steps=20))
+    found = drawn(at(Phase.RUMMAGE, level=2, phase_steps=80))
+
+    assert NIGHT.soft in early.pixels.values()
+    assert any(
+        color == NIGHT.ink and 120 - 52 <= y < 120 - 52 + 15
+        for (x, y), color in found.pixels.items()
+    )
+
+
+def test_try_again_draws_button_in_red():
+    canvas = drawn(at(Phase.CRASH, phase_steps=31))
+
+    assert NIGHT.red in canvas.pixels.values()

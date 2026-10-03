@@ -7,10 +7,11 @@ With a live picture the overlay is drawn on a transparent layer. Without one
 from datetime import datetime
 
 from wolf_run.clock import H, W
+from wolf_run.palette import NIGHT
 from wolf_run.pixels import Canvas, text, text_width
 
 OSD = "#e6e6e6"
-REC = "#e04545"
+REC = NIGHT.red
 LABEL = "CAM 1  BASEMENT"
 
 

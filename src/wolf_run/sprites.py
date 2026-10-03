@@ -181,6 +181,37 @@ GRANNY_RUN_B = mirror(
     ]
 )
 
+# Junk the wolf throws out of the brick house's chimney while he looks for her.
+PAN = [
+    "......######",
+    "############",
+    "......######",
+    ".......####.",
+]
+BOOK = [
+    "########",
+    "#o######",
+    "#o######",
+    "#o######",
+    "#o######",
+    "########",
+]
+SOCK = [
+    "###...",
+    "###...",
+    "###...",
+    "###...",
+    "######",
+    "######",
+    ".####.",
+]
+BONE = [
+    "##.....##",
+    ".#######.",
+    ".#######.",
+    "##.....##",
+]
+
 STRAW = [
     "..#...#....#....",
     ".##############.",
@@ -462,6 +493,10 @@ SPRITES = {
     "grannyRunA": GRANNY_RUN_A,
     "grannyRunB": GRANNY_RUN_B,
     "wolfBlow": WOLF_BLOW,
+    "pan": PAN,
+    "book": BOOK,
+    "sock": SOCK,
+    "bone": BONE,
     "straw": STRAW,
     "sticks": STICKS,
     "bricks": BRICKS,

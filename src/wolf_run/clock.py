@@ -12,14 +12,16 @@ from datetime import datetime
 
 from wolf_run import sprites
 from wolf_run.palette import NIGHT, Palette
-from wolf_run.pixels import Canvas, Grid, disc, paint, text, text_width
+from wolf_run.pixels import Canvas, Grid, disc, paint, text, text_runs, text_width
 
 W, H = 256, 150
 GROUND_Y = 120
 DIGIT_SCALE = 6
 DIGIT_TOP = 24
 DATE_Y = 88
-PROMPT = "PRESS ANY BUTTON TO RUN"
+# Any button works; BUTTON is drawn red to match the big red one they find.
+PROMPT_RUNS = (("PRESS ANY ", "ink"), ("BUTTON", "red"), (" TO RUN", "ink"))
+PROMPT = "".join(piece for piece, _ in PROMPT_RUNS)
 PROMPT_SCALE = 2
 
 # Stars stay out of the box around the time and date, so they never read as digits.
@@ -180,7 +182,8 @@ def draw_clock(
         text(canvas, line, (W - text_width(line)) // 2, DATE_Y, palette.dim)
     elif prompt_visible(t, primed_at):
         x = (W - text_width(PROMPT, PROMPT_SCALE)) // 2
-        text(canvas, PROMPT, x, DATE_Y - 2, palette.ink, PROMPT_SCALE)
+        runs = [(piece, getattr(palette, color)) for piece, color in PROMPT_RUNS]
+        text_runs(canvas, runs, x, DATE_Y - 2, PROMPT_SCALE)
     draw_ground(canvas, palette)
     draw_scenery(canvas, t, palette)
     _wolf(canvas, t, primed_at, palette)
@@ -267,17 +270,18 @@ def draw_scenery(
     canvas: Canvas, t: float, palette: Palette = NIGHT, scroll: float = 0
 ) -> None:
     """The pigs' houses, the pumpkin, and the tombstone. They scroll away for good
-    once the run starts."""
+    once the run starts, and stop being drawn once they're off screen."""
     dx = -round(scroll)
-    for grid, x in HOUSES:
-        paint(canvas, grid, x + dx, GROUND_Y - len(grid), palette.ink, palette.glow)
-    tomb = sprites.TOMBSTONE
-    paint(canvas, tomb, TOMBSTONE_X + dx, GROUND_Y - len(tomb), palette.ink, palette.bg)
     flicker = palette.glow if int(t * 7) % 5 else palette.dim
-    pumpkin = sprites.PUMPKIN
-    paint(
-        canvas, pumpkin, PUMPKIN_X + dx, GROUND_Y - len(pumpkin), palette.ink, flicker
-    )
+    pieces = [
+        *((grid, x, palette.glow) for grid, x in HOUSES),
+        (sprites.TOMBSTONE, TOMBSTONE_X, palette.bg),
+        (sprites.PUMPKIN, PUMPKIN_X, flicker),
+    ]
+    for grid, x, holes in pieces:
+        if x + dx + len(grid[0]) <= 0:
+            continue
+        paint(canvas, grid, x + dx, GROUND_Y - len(grid), palette.ink, holes)
 
 
 def _wolf(canvas: Canvas, t: float, primed_at: float | None, palette: Palette) -> None:

@@ -64,7 +64,8 @@ class Phase(Enum):
     FLEE = "flee"  # Grandma runs on to the next house
     FAIL = "fail"  # the bricks don't budge
     CLIMB = "climb"  # up onto the roof and down the chimney
-    INSIDE = "inside"
+    RUMMAGE = "rummage"  # turning the place upside down looking for her
+    INSIDE = "inside"  # found her
     EXIT = "exit"  # out the door, fat, in her nightcap
     GLITCH = "glitch"
     STATIC = "static"
@@ -80,7 +81,8 @@ LENGTHS = {
     Phase.FLEE: 50,
     Phase.FAIL: 45,
     Phase.CLIMB: 40,
-    Phase.INSIDE: 75,
+    Phase.RUMMAGE: 90,
+    Phase.INSIDE: 60,
     Phase.EXIT: 95,
     Phase.GLITCH: 30,
     Phase.STATIC: 22,
@@ -91,8 +93,10 @@ FLEE_NOTICE = 12
 GRANNY_SPEED = 3.5
 CLIMB_ARC = 28  # steps up onto the chimney; the rest is the drop
 EXIT_WALK = 30
+RUMMAGE_FOUND = 72  # steps into the rummage when he finds her: "AHA!"
 CAMERA_WARMUP = {
     Phase.CLIMB,
+    Phase.RUMMAGE,
     Phase.INSIDE,
     Phase.EXIT,
     Phase.GLITCH,
@@ -305,6 +309,11 @@ class Game:
         sounds: list[str] = []
         if phase is Phase.CLIMB:
             self._climb(p)
+        elif phase is Phase.RUMMAGE:
+            if p < RUMMAGE_FOUND and p % 15 == 5:
+                sounds.append("clatter")
+            elif p == RUMMAGE_FOUND:
+                sounds.append("aha")
         elif phase is Phase.INSIDE and p % 12 == 1:
             sounds.append("chomp")
         elif phase is Phase.EXIT:
@@ -339,6 +348,9 @@ class Game:
             self._enter(Phase.CLIMB)
             return ["climb"]
         if phase is Phase.CLIMB:
+            self._enter(Phase.RUMMAGE)
+            return []
+        if phase is Phase.RUMMAGE:
             self._enter(Phase.INSIDE)
             return []
         if phase is Phase.INSIDE:

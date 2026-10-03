@@ -44,3 +44,13 @@ def test_disc_is_round_and_filled(canvas):
     assert canvas.at(13, 10) == "moon"
     assert canvas.at(10, 7) == "moon"
     assert canvas.at(13, 13) is None
+
+
+def test_text_runs_space_pieces_like_one_string(canvas):
+    from wolf_run.pixels import text_runs
+
+    end = text_runs(canvas, [("A", "ink"), ("B", "red")], 0, 0)
+
+    assert end == text_width("AB")
+    assert canvas.at(0, 1) == "ink"
+    assert canvas.at(4, 1) == "red"

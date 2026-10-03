@@ -69,6 +69,22 @@ def text(
     return x - gap * scale
 
 
+def text_runs(
+    canvas: Canvas,
+    runs: Sequence[tuple[str, str]],
+    x: int,
+    y: int,
+    scale: int = 1,
+    font: Mapping[str, Grid] = FONT,
+    gap: int = 1,
+) -> int:
+    """Draw one line made of differently coloured pieces, spaced as if it were one
+    string. Each run is (text, colour)."""
+    for piece, color in runs:
+        x = text(canvas, piece, x, y, color, scale, font, gap) + gap * scale
+    return x - gap * scale
+
+
 def disc(canvas: Canvas, cx: int, cy: int, r: int, color: str) -> None:
     """A filled circle, drawn one row at a time."""
     for dy in range(-r, r + 1):

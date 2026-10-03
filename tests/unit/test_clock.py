@@ -158,3 +158,11 @@ def test_houses_sit_on_the_ground_without_overlapping():
     for (_, right), (left, _) in pairwise(spans):
         assert right < left
     assert spans[0][0] > clock.WOLF_X + len(clock.sprites.WOLF_SLEEP_A[0])
+
+
+def test_prompt_draws_button_in_red():
+    canvas = FakeCanvas()
+    clock.draw_clock(canvas, HALLOWEEN_EVENING, 11.5, primed_at=10.0)
+
+    assert NIGHT.red in canvas.pixels.values()
+    assert clock.PROMPT == "PRESS ANY BUTTON TO RUN"
