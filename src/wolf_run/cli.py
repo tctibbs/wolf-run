@@ -3,6 +3,7 @@
 import argparse
 import sys
 from dataclasses import replace
+from datetime import datetime
 from pathlib import Path
 
 from wolf_run import camera, config
@@ -15,6 +16,33 @@ def main(argv: list[str] | None = None) -> int:
         prog="wolf-run", description="A Halloween party screen for a Raspberry Pi."
     )
     commands = parser.add_subparsers(dest="command", required=True)
+
+    screen = commands.add_parser("screen", help="show the party screen")
+    screen.add_argument(
+        "--windowed",
+        action="store_true",
+        help="use a 1024x600 window instead of full screen",
+    )
+
+    shot = commands.add_parser("screenshot", help="save one frame of the screen")
+    shot.add_argument(
+        "--at",
+        type=datetime.fromisoformat,
+        help="pretend it's this time, like '2026-10-31 21:47' (default: now)",
+    )
+    shot.add_argument(
+        "--seconds",
+        type=float,
+        default=4.0,
+        help="how far into the animation (default: %(default)s)",
+    )
+    shot.add_argument(
+        "--out",
+        type=Path,
+        default=Path("snapshots/screen.png"),
+        help="where to save it (default: %(default)s)",
+    )
+
     check = commands.add_parser(
         "camera-check", help="grab one frame from the camera to prove the stream works"
     )
@@ -34,7 +62,29 @@ def main(argv: list[str] | None = None) -> int:
         help="the .env file to read (default: %(default)s)",
     )
     args = parser.parse_args(argv)
+    if args.command == "screen":
+        return show_screen(args.windowed)
+    if args.command == "screenshot":
+        return screenshot(args.at or datetime.now(), args.seconds, args.out)
     return camera_check(args.env, args.stream, args.snapshot)
+
+
+def show_screen(windowed: bool) -> int:
+    from wolf_run import ui  # Qt only loads for the commands that need it
+
+    return ui.run(windowed)
+
+
+def screenshot(now: datetime, seconds: float, out: Path) -> int:
+    from wolf_run import ui
+
+    try:
+        saved = ui.save_snapshot(out, now, seconds)
+    except OSError as error:
+        print(error, file=sys.stderr)
+        return 1
+    print(f"Saved {saved}")
+    return 0
 
 
 def camera_check(env_path: Path, stream: str | None, snapshot: Path) -> int:

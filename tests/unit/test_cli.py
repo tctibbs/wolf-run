@@ -104,3 +104,30 @@ def test_camera_check_explains_a_failed_snapshot(env_file, mocker, capsys):
 )
 def test_only_sensible_frame_rates_are_shown(fps, shown):
     assert cli._fps(fps) == shown
+
+
+def test_screenshot_renders_the_requested_moment(tmp_path, mocker, capsys):
+    save = mocker.patch("wolf_run.ui.save_snapshot", return_value=tmp_path / "s.png")
+
+    code = cli.main(
+        ["screenshot", "--at", "2026-10-31 21:47", "--seconds", "2.5", "--out", "s.png"]
+    )
+
+    assert code == 0
+    out_path, when, seconds = save.call_args.args
+    assert (str(out_path), when.hour, when.minute, seconds) == ("s.png", 21, 47, 2.5)
+    assert "Saved" in capsys.readouterr().out
+
+
+def test_screenshot_explains_a_failed_save(mocker, capsys):
+    mocker.patch("wolf_run.ui.save_snapshot", side_effect=OSError("Couldn't save."))
+
+    assert cli.main(["screenshot"]) == 1
+    assert "Couldn't save." in capsys.readouterr().err
+
+
+def test_screen_opens_the_window(mocker):
+    run = mocker.patch("wolf_run.ui.run", return_value=0)
+
+    assert cli.main(["screen", "--windowed"]) == 0
+    run.assert_called_once_with(True)

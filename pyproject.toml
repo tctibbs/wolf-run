@@ -13,7 +13,13 @@ dependencies = [
 wolf-run = "wolf_run.cli:main"
 
 [dependency-groups]
-dev = ["pytest>=8.0", "pytest-cov>=5.0", "pytest-mock>=3.12", "ruff>=0.6"]
+dev = [
+    "pyqt5>=5.15",
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "pytest-mock>=3.12",
+    "ruff>=0.6",
+]
 
 [build-system]
 requires = ["hatchling"]
