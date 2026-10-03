@@ -114,7 +114,7 @@ def test_screenshot_renders_the_requested_moment(tmp_path, mocker, capsys):
     )
 
     assert code == 0
-    out_path, when, seconds = save.call_args.args
+    out_path, when, seconds, _scene = save.call_args.args
     assert (str(out_path), when.hour, when.minute, seconds) == ("s.png", 21, 47, 2.5)
     assert "Saved" in capsys.readouterr().out
 
@@ -131,3 +131,12 @@ def test_screen_opens_the_window(mocker):
 
     assert cli.main(["screen", "--windowed"]) == 0
     run.assert_called_once_with(True)
+
+
+def test_screenshot_can_show_the_screen_primed(mocker):
+    save = mocker.patch("wolf_run.ui.save_snapshot")
+
+    cli.main(["screenshot", "--seconds", "6", "--primed", "2.5"])
+
+    scene = save.call_args.args[3]
+    assert scene.__self__.since == 3.5

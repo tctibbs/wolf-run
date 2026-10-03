@@ -17,6 +17,7 @@ from PyQt5.QtWidgets import QApplication, QWidget
 
 from wolf_run import clock
 from wolf_run.pixels import Canvas
+from wolf_run.stages import Screen
 
 PANEL_W, PANEL_H = 1024, 600
 FPS = 15
@@ -79,26 +80,33 @@ def fit(outer: QRect, w: int = clock.W, h: int = clock.H) -> QRect:
 
 
 class ScreenWindow(QWidget):
-    """Shows a scene, redrawn a few times a second."""
+    """Shows the screen's current stage, redrawn a few times a second.
+
+    Until Home Assistant can prime it, P primes the screen and R puts the wolf
+    back to sleep.
+    """
 
     def __init__(
         self,
-        scene: Scene = clock.draw_clock,
+        screen: Screen | None = None,
         now: Callable[[], datetime] = datetime.now,
         seconds: Callable[[], float] = time.monotonic,
     ) -> None:
         super().__init__()
         self.setWindowTitle("Wolf Run")
-        self._scene, self._now, self._seconds = scene, now, seconds
+        self.screen = screen or Screen()
+        self._now, self._seconds = now, seconds
         self._start = seconds()
-        self._image = render(scene, now(), 0.0)
+        self._image = render(self.screen.draw, now(), 0.0)
         self._timer = QTimer(self)
         self._timer.timeout.connect(self.tick)
         self._timer.start(1000 // FPS)
 
+    def elapsed(self) -> float:
+        return self._seconds() - self._start
+
     def tick(self) -> None:
-        t = self._seconds() - self._start
-        self._image = render(self._scene, self._now(), t)
+        self._image = render(self.screen.draw, self._now(), self.elapsed())
         self.update()
 
     def paintEvent(self, event: QPaintEvent) -> None:  # noqa: N802 - Qt's name
@@ -108,8 +116,13 @@ class ScreenWindow(QWidget):
         painter.end()
 
     def keyPressEvent(self, event: QKeyEvent) -> None:  # noqa: N802 - Qt's name
-        if event.key() in (Qt.Key_Escape, Qt.Key_Q):
+        key = event.key()
+        if key in (Qt.Key_Escape, Qt.Key_Q):
             self.close()
+        elif key == Qt.Key_P:
+            self.screen.prime(self.elapsed())
+        elif key == Qt.Key_R:
+            self.screen.reset(self.elapsed())
 
 
 def ensure_app(offscreen: bool = False) -> QApplication:

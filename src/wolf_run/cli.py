@@ -7,6 +7,7 @@ from datetime import datetime
 from pathlib import Path
 
 from wolf_run import camera, config
+from wolf_run.stages import Screen
 
 CAMERA_HINT = "Check CAMERA_HOST, the login, and that RTSP is on in the Reolink app."
 
@@ -37,6 +38,12 @@ def main(argv: list[str] | None = None) -> int:
         help="how far into the animation (default: %(default)s)",
     )
     shot.add_argument(
+        "--primed",
+        type=float,
+        metavar="SECONDS",
+        help="show it primed, this many seconds ago (default: wolf asleep)",
+    )
+    shot.add_argument(
         "--out",
         type=Path,
         default=Path("snapshots/screen.png"),
@@ -65,7 +72,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "screen":
         return show_screen(args.windowed)
     if args.command == "screenshot":
-        return screenshot(args.at or datetime.now(), args.seconds, args.out)
+        when = args.at or datetime.now()
+        return screenshot(when, args.seconds, args.out, args.primed)
     return camera_check(args.env, args.stream, args.snapshot)
 
 
@@ -75,11 +83,16 @@ def show_screen(windowed: bool) -> int:
     return ui.run(windowed)
 
 
-def screenshot(now: datetime, seconds: float, out: Path) -> int:
+def screenshot(
+    now: datetime, seconds: float, out: Path, primed: float | None = None
+) -> int:
     from wolf_run import ui
 
+    screen = Screen()
+    if primed is not None:
+        screen.prime(seconds - primed)
     try:
-        saved = ui.save_snapshot(out, now, seconds)
+        saved = ui.save_snapshot(out, now, seconds, screen.draw)
     except OSError as error:
         print(error, file=sys.stderr)
         return 1

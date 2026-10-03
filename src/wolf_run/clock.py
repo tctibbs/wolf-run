@@ -1,7 +1,8 @@
-"""Stage one: a Halloween clock that minds its own business.
+"""Stage one: a Halloween clock, with the wolf asleep in the corner.
 
-The clock shares the game's ground line, so the game can start from this exact
-picture: the wolf in the bush on the left, the pigs' houses along the ground.
+When the screen is primed, the wolf wakes up, gets to his feet, and a prompt
+blinks under the time. The clock shares the game's ground line, so the game can
+start from this exact picture.
 """
 
 import math
@@ -11,13 +12,15 @@ from datetime import datetime
 
 from wolf_run import sprites
 from wolf_run.palette import NIGHT, Palette
-from wolf_run.pixels import Canvas, disc, paint, text, text_width
+from wolf_run.pixels import Canvas, Grid, disc, paint, text, text_width
 
 W, H = 256, 150
 GROUND_Y = 120
 DIGIT_SCALE = 6
 DIGIT_TOP = 24
 DATE_Y = 96
+PROMPT = "PRESS THE BUTTON TO RUN"
+PROMPT_SCALE = 2
 
 # Stars stay out of the box around the time and date, so they never read as digits.
 CLEAR = (44, 18, 214, 104)
@@ -39,8 +42,7 @@ STARS = _scatter_stars(26)
 SPECKS = [((i * 61 + 13) % W, i % 3) for i in range(18)]
 MOON = (228, 24, 12)
 
-BUSH_X = 4
-EYES = ((9, 4), (13, 4))
+WOLF_X = 4
 SCENERY = [
     (sprites.STRAW_HUT, 66),
     (sprites.STICK_HOUSE, 116),
@@ -49,8 +51,11 @@ SCENERY = [
 ]
 PUMPKIN_X = 188
 
-EYES_CYCLE, EYES_FROM, EYES_UNTIL = 20.0, 2.0, 9.0
-BLINKS = ((4.6, 4.75), (7.2, 7.35))
+BREATH = 3.0
+SNORE_CYCLE = 3.6
+WAKE_UP = 0.9
+ON_HIS_FEET = 1.3
+WAG = 0.2
 BAT_CYCLE, BAT_FLIGHT = 24.0, 10.0
 DRIP_CYCLE = 7.0
 
@@ -60,6 +65,22 @@ class Bat:
     x: int
     y: int
     wings_up: bool
+
+
+@dataclass(frozen=True)
+class Pose:
+    """How to draw the wolf in his corner right now."""
+
+    grid: Grid
+    lift: int = 0
+    startled: bool = False
+
+
+@dataclass(frozen=True)
+class Snore:
+    x: int
+    y: int
+    scale: int
 
 
 def time_parts(now: datetime) -> tuple[str, str]:
@@ -76,12 +97,42 @@ def colon_visible(t: float) -> bool:
     return t % 1 < 0.5
 
 
-def eyes_open(t: float) -> bool:
-    """The wolf peeks out of the bush for a few seconds every cycle, and blinks."""
-    p = t % EYES_CYCLE
-    if not EYES_FROM <= p < EYES_UNTIL:
+def wolf_pose(t: float, primed_at: float | None) -> Pose:
+    """Asleep until primed; then a start, a hop to his feet, and a wagging tail."""
+    if primed_at is None:
+        breathing_in = t % BREATH < BREATH / 2
+        return Pose(sprites.WOLF_SLEEP_B if breathing_in else sprites.WOLF_SLEEP_A)
+    since = t - primed_at
+    if since < WAKE_UP:
+        return Pose(sprites.WOLF_SLEEP_A, startled=True)
+    if since < ON_HIS_FEET:
+        return Pose(sprites.WOLF_B, lift=3)
+    wagging = int((since - ON_HIS_FEET) / WAG) % 2
+    return Pose(sprites.WOLF_WAG if wagging else sprites.WOLF_B)
+
+
+def snores(t: float) -> list[Snore]:
+    """Three Zs drifting up from his head, growing as they rise."""
+    head_x, head_y = WOLF_X + 24, GROUND_Y - len(sprites.WOLF_SLEEP_A)
+    rising = []
+    for i in range(3):
+        p = (t / SNORE_CYCLE + i / 3) % 1
+        rising.append(
+            Snore(
+                x=round(head_x + 2 + p * 12),
+                y=round(head_y - 8 - p * 26),
+                scale=1 if p < 0.5 else 2,
+            )
+        )
+    return rising
+
+
+def prompt_visible(t: float, primed_at: float | None) -> bool:
+    """Blinks once he's on his feet, like the dinosaur game's start screen."""
+    if primed_at is None:
         return False
-    return not any(start <= p < end for start, end in BLINKS)
+    since = t - primed_at
+    return since >= ON_HIS_FEET and (since - ON_HIS_FEET) % 1 < 0.65
 
 
 def bats(t: float) -> list[Bat]:
@@ -106,15 +157,28 @@ def drip(t: float, index: int) -> tuple[int, int | None]:
 
 
 def draw_clock(
-    canvas: Canvas, now: datetime, t: float, palette: Palette = NIGHT
+    canvas: Canvas,
+    now: datetime,
+    t: float,
+    primed_at: float | None = None,
+    palette: Palette = NIGHT,
 ) -> None:
-    """Draw one frame of the clock at time `now`, `t` seconds into the animation."""
+    """Draw one frame: `now` is the wall time, `t` the seconds of animation so far.
+
+    `primed_at` is the animation time the screen was primed, or None while the
+    wolf is still asleep.
+    """
     canvas.fill(0, 0, W, H, palette.bg)
     _sky(canvas, t, palette)
     _time(canvas, now, t, palette)
-    line = date_line(now)
-    text(canvas, line, (W - text_width(line)) // 2, DATE_Y, palette.dim)
+    if primed_at is None:
+        line = date_line(now)
+        text(canvas, line, (W - text_width(line)) // 2, DATE_Y, palette.dim)
+    elif prompt_visible(t, primed_at):
+        x = (W - text_width(PROMPT, PROMPT_SCALE)) // 2
+        text(canvas, PROMPT, x, DATE_Y - 2, palette.ink, PROMPT_SCALE)
     _ground(canvas, t, palette)
+    _wolf(canvas, t, primed_at, palette)
 
 
 def _sky(canvas: Canvas, t: float, palette: Palette) -> None:
@@ -154,7 +218,7 @@ def _time(canvas: Canvas, now: datetime, t: float, palette: Palette) -> None:
 
 
 def _drip(
-    canvas: Canvas, glyph: list[str], x: int, t: float, index: int, palette: Palette
+    canvas: Canvas, glyph: Grid, x: int, t: float, index: int, palette: Palette
 ) -> None:
     """Hang a drip off the first inked pixel on the digit's bottom row."""
     column = glyph[-1].index("#")
@@ -178,9 +242,14 @@ def _ground(canvas: Canvas, t: float, palette: Palette) -> None:
     flicker = palette.glow if int(t * 7) % 5 else palette.dim
     pumpkin = sprites.PUMPKIN
     paint(canvas, pumpkin, PUMPKIN_X, GROUND_Y - len(pumpkin), palette.ink, flicker)
-    bush = sprites.BUSH
-    bush_y = GROUND_Y - len(bush)
-    paint(canvas, bush, BUSH_X, bush_y, palette.soft, palette.soft)
-    if eyes_open(t):
-        for ex, ey in EYES:
-            canvas.fill(BUSH_X + ex, bush_y + ey, 2, 1, palette.glow)
+
+
+def _wolf(canvas: Canvas, t: float, primed_at: float | None, palette: Palette) -> None:
+    pose = wolf_pose(t, primed_at)
+    top = GROUND_Y - len(pose.grid) - pose.lift
+    paint(canvas, pose.grid, WOLF_X, top, palette.ink, palette.bg)
+    if pose.startled:
+        text(canvas, "!", WOLF_X + 23, top - 14, palette.glow, 2)
+    if primed_at is None:
+        for z in snores(t):
+            text(canvas, "Z", z.x, z.y, palette.dim, z.scale)

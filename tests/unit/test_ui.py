@@ -6,6 +6,7 @@ from PyQt5.QtGui import QColor, QImage, QKeyEvent
 
 from wolf_run import clock, ui
 from wolf_run.palette import NIGHT
+from wolf_run.stages import Stage
 
 HALLOWEEN_EVENING = datetime(2026, 10, 31, 21, 47)
 
@@ -61,6 +62,19 @@ def test_image_canvas_reuses_colours():
 
     assert len(canvas._colors) == 1
     assert image.pixelColor(3, 3) == QColor("#ff0000")
+
+
+def test_p_primes_and_r_puts_the_wolf_back_to_sleep():
+    seconds = iter([100.0, 103.0, 109.0])
+    window = ui.ScreenWindow(
+        now=lambda: HALLOWEEN_EVENING, seconds=lambda: next(seconds)
+    )
+
+    window.keyPressEvent(QKeyEvent(QEvent.KeyPress, Qt.Key_P, Qt.NoModifier))
+    assert (window.screen.stage, window.screen.since) == (Stage.PRIMED, 3.0)
+
+    window.keyPressEvent(QKeyEvent(QEvent.KeyPress, Qt.Key_R, Qt.NoModifier))
+    assert (window.screen.stage, window.screen.since) == (Stage.CLOCK, 9.0)
 
 
 def test_window_redraws_on_tick_and_closes_on_escape():

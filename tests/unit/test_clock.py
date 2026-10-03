@@ -2,6 +2,7 @@ from datetime import datetime
 
 import pytest
 
+from conftest import FakeCanvas
 from wolf_run import clock
 from wolf_run.palette import NIGHT
 
@@ -30,12 +31,38 @@ def test_colon_blinks_every_second():
     assert not clock.colon_visible(4.7)
 
 
-def test_wolf_eyes_peek_out_then_hide():
-    assert not clock.eyes_open(1.0)
-    assert clock.eyes_open(4.0)
-    assert not clock.eyes_open(4.7)
-    assert not clock.eyes_open(12.0)
-    assert clock.eyes_open(24.0)
+def test_wolf_sleeps_and_breathes_until_primed():
+    breaths = {tuple(clock.wolf_pose(t, None).grid) for t in (0.5, 2.0)}
+
+    assert breaths == {
+        tuple(clock.sprites.WOLF_SLEEP_A),
+        tuple(clock.sprites.WOLF_SLEEP_B),
+    }
+
+
+def test_wolf_wakes_with_a_start_then_hops_up_and_wags():
+    startled = clock.wolf_pose(10.3, primed_at=10.0)
+    hopping = clock.wolf_pose(11.0, primed_at=10.0)
+    wags = {tuple(clock.wolf_pose(10.0 + s, 10.0).grid) for s in (1.35, 1.55)}
+
+    assert startled.startled
+    assert startled.grid == clock.sprites.WOLF_SLEEP_A
+    assert hopping.lift > 0
+    assert wags == {tuple(clock.sprites.WOLF_B), tuple(clock.sprites.WOLF_WAG)}
+
+
+def test_snores_rise_and_grow():
+    low, high = sorted(clock.snores(1.0), key=lambda z: -z.y)[::2]
+
+    assert high.y < low.y
+    assert high.scale >= low.scale
+
+
+def test_prompt_waits_for_him_to_stand_then_blinks():
+    assert not clock.prompt_visible(5.0, None)
+    assert not clock.prompt_visible(10.5, primed_at=10.0)
+    assert clock.prompt_visible(11.4, primed_at=10.0)
+    assert not clock.prompt_visible(12.1, primed_at=10.0)
 
 
 def test_bats_fly_right_to_left_then_leave():
@@ -75,15 +102,30 @@ def test_draw_clock_paints_the_time_and_the_ground(canvas):
     assert canvas.at(0, 0) == NIGHT.bg
 
 
-def test_wolf_eyes_glow_only_while_open(canvas):
-    eye_x = clock.BUSH_X + clock.EYES[0][0]
-    eye_y = clock.GROUND_Y - len(clock.sprites.BUSH) + clock.EYES[0][1]
+def test_primed_swaps_the_date_for_the_prompt(canvas):
+    def ink_in_date_band(primed_at):
+        drawn = FakeCanvas()
+        clock.draw_clock(drawn, HALLOWEEN_EVENING, 11.5, primed_at)
+        band = range(clock.DATE_Y - 2, clock.DATE_Y + 9)
+        return {
+            color
+            for (x, y), color in drawn.pixels.items()
+            if y in band and 40 < x < 220
+        }
 
-    clock.draw_clock(canvas, HALLOWEEN_EVENING, t=4.0)
-    assert canvas.at(eye_x, eye_y) == NIGHT.glow
+    asleep, primed = ink_in_date_band(None), ink_in_date_band(10.0)
 
-    clock.draw_clock(canvas, HALLOWEEN_EVENING, t=12.0)
-    assert canvas.at(eye_x, eye_y) == NIGHT.soft
+    assert NIGHT.dim in asleep
+    assert NIGHT.ink not in asleep
+    assert NIGHT.ink in primed
+
+
+def test_startled_wolf_gets_a_glowing_exclamation_mark(canvas):
+    clock.draw_clock(canvas, HALLOWEEN_EVENING, 10.2, primed_at=10.0)
+
+    assert NIGHT.glow in {
+        canvas.at(x, y) for x in range(20, 40) for y in range(80, 110)
+    }
 
 
 def test_same_moment_draws_the_same_picture():
@@ -94,8 +136,6 @@ def test_same_moment_draws_the_same_picture():
 
 
 def clock_pixels(t):
-    from conftest import FakeCanvas
-
     canvas = FakeCanvas()
     clock.draw_clock(canvas, HALLOWEEN_EVENING, t)
     return canvas.pixels
