@@ -47,8 +47,9 @@ uv run wolf-run screenshot --seconds 6 --primed 2.5  # the same, primed 2.5 seco
 
 ## Playing it
 
-Any key, click, or tap is "the button". Hold it to jump higher, like the dinosaur
-game; a quick tap is a short hop.
+Any key, click, or tap is the button, so the hardware can change without
+touching the code. The word BUTTON is drawn red to match the big red button. Hold it to jump higher, like the
+dinosaur game; a quick tap is a short hop.
 
 Grandma runs off and hides in the straw hut, then the stick house, then the brick
 house. Each house is a level. Reach one and the wolf huffs and puffs it down, and
