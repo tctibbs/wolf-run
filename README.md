@@ -1,87 +1,41 @@
 # Wolf Run
 
-A little party screen for a Halloween escape room, built for a Raspberry Pi with a
-touchscreen.
+I made Wolf Run for a Halloween escape room I hosted. It runs on a Raspberry Pi with
+a small touchscreen that sits in the living room.
 
-Most of the night it's just a clock in the corner of the living room, with the wolf
-curled up asleep beside it. Then something in the game sets it off: the wolf wakes
-up, gets to his feet, and the screen tells you to press any button. Do it, and the
-clock turns into a retro runner, the kind you play
-when the internet goes down. You're the Big Bad Wolf. Jump the straw, the sticks and
-the bricks, make it all the way to Grandma's house, and... well, he eats her. Then
-the screen crackles into static and cuts to a live feed from the basement camera.
+Most of the night it's a clock, with the Big Bad Wolf asleep in the corner. When it's
+time, he wakes up and the screen asks for a button. Press it and you're the wolf,
+chasing Grandma as she runs to the straw house, then the stick house, then the brick
+house. It plays a lot like the Chrome dinosaur game: tap to hop, hold to jump higher,
+and each house is faster than the last. Catch her and the screen cuts to a live
+camera.
 
-| Asleep | Primed |
-|---|---|
-| ![The clock with the wolf asleep](docs/images/clock.png) | ![The wolf awake, with PRESS ANY BUTTON TO RUN](docs/images/primed.png) |
+![The wolf wakes up](docs/images/wake-up.gif)
 
-## The three stages
+![Running and jumping](docs/images/run.gif)
 
-| Stage | What's on screen | Status |
-|---|---|---|
-| 1. Clock | The time, dripping, with bats, a moon, and the wolf asleep | Done |
-| 1b. Primed | The wolf wakes up and the screen says to press any button | Done |
-| 2. Wolf Run | Three houses, three levels, and Grandma as dinner | Done (sound to come) |
-| 3. The basement | A live camera feed, security-camera style | Done |
+![Huffing and puffing](docs/images/huff-and-puff.gif)
 
-## Getting started
+![Down the chimney](docs/images/brick-house.gif)
 
-You'll need [uv](https://docs.astral.sh/uv/).
+## Running it
 
 ```bash
 uv sync
-cp .env.example .env    # then fill in your camera's address and login
-uv run wolf-run camera-check
+uv run wolf-run screen --windowed
 ```
 
-`camera-check` grabs one frame from the camera and saves it to
-`snapshots/camera-check.jpg`, so you can see it's really working.
+Ctrl+P (Cmd+P on a Mac) wakes the wolf, then any key plays. Ctrl+E skips to the brick
+house, Ctrl+R resets, and Ctrl+Q quits.
 
-To see the screen itself:
+For the camera at the end, copy `.env.example` to `.env` and fill in your RTSP
+camera. `uv run wolf-run camera-check` tells you if it's working.
 
-```bash
-uv run wolf-run screen --windowed                    # a 1024x600 window; Esc closes
-uv run wolf-run screenshot --at "2026-10-31 21:47"   # one frame, saved as a PNG
-uv run wolf-run screenshot --seconds 6 --primed 2.5  # the same, primed 2.5 seconds ago
-```
+## Sprites
 
-## Playing it
-
-Any key, click, or tap is the button, so the hardware can change without
-touching the code. The word BUTTON is drawn red to match the big red button. Hold it to jump higher, like the
-dinosaur game; a quick tap is a short hop.
-
-Grandma runs off and hides in the straw hut, then the stick house, then the brick
-house. Each house is a level. Reach one and the wolf huffs and puffs it down, and
-Grandma runs on to the next. Crash and you start that level again, not the whole
-game. The brick house won't blow down, so the wolf goes down the chimney instead.
-A perfect run takes under two minutes; expect about five with practice.
-
-The host's controls need Ctrl (Cmd on a Mac), so a guest mashing keys can't hit
-them:
-
-| Keys | Does |
-|---|---|
-| Ctrl+P | Prime the screen: the wolf wakes up and asks for the button |
-| Ctrl+R | Back to the sleeping clock |
-| Ctrl+E | Skip to the brick house |
-| Ctrl+Q | Quit |
-
-## Private stuff stays private
-
-The camera's address and login live in `.env`, which git ignores. The repo only has
-`.env.example`, with made-up values. Snapshots are ignored too.
+![All the sprites](docs/images/cast.png)
 
 ## Hardware
 
-- Raspberry Pi 3 with a 1024x600 touchscreen
-- Reolink E1 Zoom camera, read over RTSP (the small "sub" stream is plenty for a Pi 3)
-- Home Assistant to kick things off and to override anything that gets stuck
-
-## Development
-
-```bash
-uv run pytest
-uv run ruff check
-uv run ruff format
-```
+A Raspberry Pi 3, a 1024x600 touchscreen, a Reolink E1 Zoom camera, and a big red USB
+button.
