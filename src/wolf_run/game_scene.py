@@ -277,13 +277,7 @@ def _words(canvas: Canvas, game: Game, palette: Palette) -> None:
             runs = [(before, palette.ink), (red, palette.red), (after, palette.ink)]
             text_runs(canvas, runs, x, 66)
     elif phase is Phase.RUN and game.banner_steps:
-        target = LEVELS[game.level].name
-        line = (
-            "CATCH GRANDMA!"
-            if game.level == 0 and game.tries == 1
-            else f"TO THE {target}"
-        )
-        _centered(canvas, line, 44, 2, palette.ink)
+        _centered(canvas, banner(game), 44, 2, palette.ink)
     elif phase is Phase.HUFF:
         _centered(canvas, "I'LL HUFF...", 44, 2, palette.ink)
     elif phase is Phase.PUFF:

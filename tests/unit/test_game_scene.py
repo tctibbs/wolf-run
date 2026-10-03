@@ -165,3 +165,24 @@ def test_try_again_draws_button_in_red():
     canvas = drawn(at(Phase.CRASH, phase_steps=31))
 
     assert NIGHT.red in canvas.pixels.values()
+
+
+def test_the_drawn_banner_is_the_one_that_names_no_house():
+    """Check what actually reaches the screen, not just the banner function."""
+    from wolf_run.game_scene import banner
+
+    for level in range(len(LEVELS)):
+        game = at(Phase.RUN, level=level, steps=100)
+        game.banner_steps = 30
+        canvas = drawn(game)
+        expected = FakeCanvas()
+        line = banner(game)
+        x = (256 - game_scene.text_width(line, 2)) // 2
+        game_scene.text(expected, line, x, 44, NIGHT.ink, 2)
+
+        band = {
+            xy: color
+            for xy, color in canvas.pixels.items()
+            if 44 <= xy[1] < 54 and color == NIGHT.ink
+        }
+        assert band == expected.pixels
