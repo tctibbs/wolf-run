@@ -11,6 +11,7 @@ from functools import cache
 from wolf_run import clock, sprites
 from wolf_run.game import (
     CLIMB_ARC,
+    EXIT_WALK,
     FLEE_NOTICE,
     INTRO_NOTICE,
     LENGTHS,
@@ -25,7 +26,7 @@ from wolf_run.pixels import Canvas, Grid, paint, text, text_runs, text_width
 W, H, GROUND_Y = clock.W, clock.H, clock.GROUND_Y
 SLIDE_STEPS = 18
 TRY_AGAIN = ("PRESS ANY ", "BUTTON", " TO TRY AGAIN")
-DEBRIS_TILE = 3
+DEBRIS_TILE = 4
 HOUSE_PHASES = {
     Phase.ARRIVE,
     Phase.HUFF,
@@ -46,7 +47,6 @@ JUNK = (
     (sprites.BONE, 51, 1.3, -2.8),
 )
 JUNK_GRAVITY = 0.22
-CHIMNEY_X = 21  # the chimney's middle, in the brick house sprite
 RUMMAGE_WORDS = ("CLATTER!", "BANG!", "CRASH!")
 
 
@@ -139,11 +139,11 @@ def debris(level: int, house_x: float, steps: int) -> list[tuple[Grid, int, int]
     return pieces
 
 
-def junk(house_x: float, steps: int) -> list[tuple[Grid, int, int]]:
+def junk(house: Grid, house_x: float, steps: int) -> list[tuple[Grid, int, int]]:
     """Everything thrown out of the chimney so far: in the air, or on the ground
     beside the house where it landed."""
-    cx = house_x + CHIMNEY_X
-    cy = GROUND_Y - len(sprites.BRICK_HOUSE)
+    cx = house_x + sprites.chimney_center(list(house))
+    cy = GROUND_Y - len(house)
     thrown = []
     for grid, when, vx, vy in JUNK:
         if steps < when:
@@ -169,7 +169,7 @@ def _junk(canvas: Canvas, game: Game, palette: Palette) -> None:
         steps = LENGTHS[Phase.RUMMAGE]
     else:
         return
-    for grid, x, y in junk(game.house_x, steps):
+    for grid, x, y in junk(game.current.house, game.house_x, steps):
         paint(canvas, grid, x, y, palette.ink, palette.bg)
 
 
@@ -178,8 +178,9 @@ def _soot(canvas: Canvas, game: Game, palette: Palette) -> None:
     p = game.phase_steps
     if p >= RUMMAGE_FOUND:
         return
-    cx = round(game.house_x) + CHIMNEY_X
-    cy = GROUND_Y - len(sprites.BRICK_HOUSE)
+    house = game.current.house
+    cx = round(game.house_x + sprites.chimney_center(list(house)))
+    cy = GROUND_Y - len(house)
     for j in range(3):
         q = (p + j * 7) % 21
         size = 2 + q // 7
@@ -222,7 +223,9 @@ def _wolf(canvas: Canvas, game: Game, palette: Palette) -> None:
     paint(canvas, grid, x, top, palette.ink, palette.bg)
     if game.phase is Phase.PUFF:
         _wind(canvas, game, x + 32, top + 6, palette)
-    licking = game.phase is Phase.EXIT and 60 < game.phase_steps < 92
+    licking = (
+        game.phase is Phase.EXIT and EXIT_WALK + 20 < game.phase_steps < EXIT_WALK + 52
+    )
     if licking and (game.phase_steps // 4) % 2 == 0:
         paint(canvas, sprites.TONGUE, x + 30, top + 8, palette.ink, palette.bg)
 
@@ -257,6 +260,12 @@ def _granny(canvas: Canvas, game: Game, palette: Palette) -> None:
     paint(canvas, grid, x, GROUND_Y - len(grid), palette.ink, palette.bg)
 
 
+def banner(game: Game) -> str:
+    """What the screen shouts as a level starts. The wolf doesn't know which house
+    she'll run to next, so neither does the banner."""
+    return "CATCH GRANDMA!" if game.level == 0 else "AFTER HER!"
+
+
 def _words(canvas: Canvas, game: Game, palette: Palette) -> None:
     """The story beats, spelled out big."""
     p, phase = game.phase_steps, game.phase
@@ -285,19 +294,27 @@ def _words(canvas: Canvas, game: Game, palette: Palette) -> None:
     elif phase is Phase.CLIMB:
         _centered(canvas, "THE CHIMNEY!", 44, 2, palette.ink)
     elif phase is Phase.RUMMAGE:
-        house_x = round(game.house_x)
+        middle = round(game.house_x + game.house_width / 2)
+        roof = GROUND_Y - len(game.current.house)
         if p >= RUMMAGE_FOUND:
-            aha_x = house_x + 14 - text_width("AHA!", 3) // 2
-            text(canvas, "AHA!", aha_x, GROUND_Y - 52, palette.ink, 3)
+            text(
+                canvas,
+                "AHA!",
+                middle - text_width("AHA!", 3) // 2,
+                roof - 24,
+                palette.ink,
+                3,
+            )
         elif p % 15 < 10:
             word = RUMMAGE_WORDS[(p // 15) % len(RUMMAGE_WORDS)]
-            dx = -30 if (p // 15) % 2 else 10
-            text(canvas, word, house_x + dx, GROUND_Y - 44, palette.ink, 2)
+            dx = -46 if (p // 15) % 2 else 6
+            text(canvas, word, middle + dx, roof - 16, palette.ink, 2)
     elif phase is Phase.INSIDE and (p // 12) % 2 == 0:
-        house_x = round(game.house_x)
-        dx = -12 if (p // 24) % 2 else 2
-        text(canvas, "CHOMP!", house_x + dx, GROUND_Y - 42, palette.ink, 2)
-    elif phase is Phase.EXIT and 40 <= p < 80:
+        middle = round(game.house_x + game.house_width / 2)
+        roof = GROUND_Y - len(game.current.house)
+        dx = -40 if (p // 24) % 2 else -4
+        text(canvas, "CHOMP!", middle + dx, roof - 16, palette.ink, 2)
+    elif phase is Phase.EXIT and EXIT_WALK + 5 <= p < EXIT_WALK + 45:
         text(
             canvas,
             "BURP!",

@@ -93,14 +93,15 @@ def test_the_house_shakes_while_he_eats_inside():
 
 
 def test_the_wolf_vanishes_into_the_chimney():
-    game = at(Phase.CLIMB, level=2, phase_steps=39)
-    game.wolf_x, game.wolf_y = 155, 0
+    game = at(Phase.CLIMB, level=2, phase_steps=40)
+    chimney_top = 120 - len(LEVELS[2].house)
+    game.wolf_x, game.wolf_y = 173, -(len(LEVELS[2].house) - 1) + 30
 
     canvas = drawn(game)
     above_roof = [
         (x, y)
         for (x, y), color in canvas.pixels.items()
-        if color == NIGHT.ink and 150 <= x <= 190 and 60 < y < 120 - 22
+        if color == NIGHT.ink and 170 <= x <= 206 and 60 < y < chimney_top
     ]
 
     assert not above_roof
@@ -138,13 +139,14 @@ def test_grandma_runs_in_the_intro_and_from_each_house():
 
 
 def test_rummaging_throws_junk_out_of_the_chimney_that_lands_nearby():
-    flying = game_scene.junk(150, 20)
-    landed = game_scene.junk(150, 90)
+    house = LEVELS[2].house
+    flying = game_scene.junk(house, 150, 20)
+    landed = game_scene.junk(house, 150, 90)
 
     assert len(flying) < len(landed) == len(game_scene.JUNK)
     for grid, x, y in landed:
         assert y == 120 - len(grid)
-        assert 100 < x < 230
+        assert 110 < x < 256 - len(grid[0])
 
 
 def test_rummage_shows_soot_words_then_aha():
@@ -152,8 +154,9 @@ def test_rummage_shows_soot_words_then_aha():
     found = drawn(at(Phase.RUMMAGE, level=2, phase_steps=80))
 
     assert NIGHT.soft in early.pixels.values()
+    roof = 120 - len(LEVELS[2].house)
     assert any(
-        color == NIGHT.ink and 120 - 52 <= y < 120 - 52 + 15
+        color == NIGHT.ink and roof - 24 <= y < roof - 24 + 15
         for (x, y), color in found.pixels.items()
     )
 

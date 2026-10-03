@@ -1,4 +1,5 @@
 import random
+from itertools import pairwise
 
 import pytest
 
@@ -205,3 +206,43 @@ def test_banner_names_the_next_house_then_fades():
     assert game.banner_steps > 0
     run_steps(game, 61)
     assert game.banner_steps == 0
+
+
+def test_banners_cheer_you_on_without_naming_the_next_house():
+    from wolf_run.game_scene import banner
+
+    lines = [banner(running(level=level)) for level in range(len(LEVELS))]
+
+    assert lines[0] == "CATCH GRANDMA!"
+    for line in lines:
+        assert "HOUSE" not in line
+        assert "HUT" not in line
+
+
+def test_a_retry_skips_the_banner():
+    game = running(level=1)
+    game._enter(Phase.CRASH)
+    run_steps(game, g.CRASH_PAUSE + 1)
+
+    game.press()
+
+    assert game.banner_steps == 0
+
+
+def test_each_level_is_faster_than_the_last_one_ended():
+    for easier, harder in pairwise(LEVELS):
+        assert harder.speeds[0] > easier.speeds[1]
+        assert harder.gaps[1] < easier.gaps[1]
+
+
+def test_after_a_pair_the_next_obstacle_leaves_room_to_land():
+    game = running(level=2)
+    game.rng = random.Random(0)
+    for _ in range(300):
+        game.obstacles.clear()
+        game.gap = 0
+        game._spawn(game.current)
+        if len(game.obstacles) == 2:
+            pair_end = game.obstacles[1].x + game.obstacles[1].width
+            next_at = game.obstacles[0].x + game.gap
+            assert next_at - pair_end >= game.current.gaps[0]

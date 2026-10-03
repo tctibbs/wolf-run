@@ -46,10 +46,12 @@ class Level:
     doubles: float  # chance an obstacle comes with a second one right behind it
 
 
+# Each house is noticeably faster than the last, with obstacles closer together and
+# more of them in pairs, so the timing gets tighter as the night goes on.
 LEVELS = (
-    Level("STRAW HUT", sprites.STRAW_HUT, 24, (2.4, 2.9), (115, 175), 0.0),
-    Level("STICK HOUSE", sprites.STICK_HOUSE, 26, (2.7, 3.3), (100, 160), 0.15),
-    Level("BRICK HOUSE", sprites.BRICK_HOUSE, 28, (3.0, 3.6), (90, 150), 0.3),
+    Level("STRAW HUT", sprites.STRAW_HUT_BIG, 24, (2.4, 2.8), (120, 180), 0.0),
+    Level("STICK HOUSE", sprites.STICK_HOUSE_BIG, 26, (3.0, 3.4), (95, 150), 0.2),
+    Level("BRICK HOUSE", sprites.BRICK_HOUSE_BIG, 28, (3.6, 4.0), (75, 125), 0.35),
 )
 
 
@@ -83,7 +85,7 @@ LENGTHS = {
     Phase.CLIMB: 40,
     Phase.RUMMAGE: 90,
     Phase.INSIDE: 60,
-    Phase.EXIT: 95,
+    Phase.EXIT: 110,
     Phase.GLITCH: 30,
     Phase.STATIC: 22,
 }
@@ -92,7 +94,7 @@ GRANNY_START_X = 88  # between the straw hut and the stick house on the clock
 FLEE_NOTICE = 12
 GRANNY_SPEED = 3.5
 CLIMB_ARC = 28  # steps up onto the chimney; the rest is the drop
-EXIT_WALK = 30
+EXIT_WALK = 45  # far enough to be clear of the big house
 RUMMAGE_FOUND = 72  # steps into the rummage when he finds her: "AHA!"
 CAMERA_WARMUP = {
     Phase.CLIMB,
@@ -151,6 +153,10 @@ class Game:
         return slow + (fast - slow) * self.progress
 
     @property
+    def house_width(self) -> int:
+        return len(self.current.house[0])
+
+    @property
     def on_ground(self) -> bool:
         return self.wolf_y == 0 and self.vy == 0
 
@@ -177,7 +183,7 @@ class Game:
             return ["jump"]
         if self.phase is Phase.CRASH and self.phase_steps > CRASH_PAUSE:
             self.tries += 1
-            self._start_level(self.level)
+            self._start_level(self.level, retry=True)
         return []
 
     def release(self) -> None:
@@ -206,14 +212,14 @@ class Game:
     def _enter(self, phase: Phase) -> None:
         self.phase, self.phase_steps = phase, 0
 
-    def _start_level(self, level: int) -> None:
+    def _start_level(self, level: int, retry: bool = False) -> None:
         self.level = level
         self.progress = 0.0
         self.obstacles.clear()
         self.wolf_y = self.vy = 0.0
         self.house_x = W + 4
         self.gap = 160.0
-        self.banner_steps = 60
+        self.banner_steps = 0 if retry else 60
         self._enter(Phase.RUN)
 
     def _scroll(self) -> None:
@@ -262,12 +268,16 @@ class Game:
             return
         first = Obstacle(self.rng.choice(list(OBSTACLES)), W + 4)
         self.obstacles.append(first)
+        last = first
         if self.rng.random() < level.doubles:
-            second = Obstacle(self.rng.choice(list(OBSTACLES)), 0)
-            second.x = first.x + first.width + 12 + self.rng.random() * 8
-            self.obstacles.append(second)
+            last = Obstacle(self.rng.choice(list(OBSTACLES)), 0)
+            last.x = first.x + first.width + 12 + self.rng.random() * 8
+            self.obstacles.append(last)
+        # Measure the gap from the end of a pair, so landing a long jump over one
+        # never drops you straight onto the next obstacle.
         low, high = level.gaps
-        self.gap = low + self.rng.random() * (high - low) + self.speed * 8
+        pair_length = last.x - first.x
+        self.gap = low + self.rng.random() * (high - low) + self.speed * 8 + pair_length
 
     def _autopilot(self) -> list[str]:
         """Plays itself for demos: jumps in time, and holds for a pair."""
@@ -319,9 +329,9 @@ class Game:
         elif phase is Phase.EXIT:
             if p <= EXIT_WALK:
                 self.wolf_x += 1
-            if p == 40:
+            if p == EXIT_WALK + 5:
                 sounds.append("burp")
-            if 60 < p < 90 and p % 8 == 0:
+            if EXIT_WALK + 20 < p < EXIT_WALK + 50 and p % 8 == 0:
                 sounds.append("lick")
         elif phase is Phase.FLEE and p > FLEE_NOTICE:
             self.granny_x += GRANNY_SPEED
@@ -338,7 +348,7 @@ class Game:
             self._enter(Phase.FAIL if self.last_level else Phase.COLLAPSE)
             return ["sad" if self.last_level else "crumble"]
         if phase is Phase.COLLAPSE:
-            self.granny_x = self.house_x + 6
+            self.granny_x = self.house_x + self.house_width / 2 - 8
             self._enter(Phase.FLEE)
             return ["alert"]
         if phase is Phase.FLEE:
@@ -354,7 +364,7 @@ class Game:
             self._enter(Phase.INSIDE)
             return []
         if phase is Phase.INSIDE:
-            self.wolf_x, self.wolf_y = self.house_x + 4, 0.0
+            self.wolf_x, self.wolf_y = self.house_x + self.house_width / 2 - 16, 0.0
             self._enter(Phase.EXIT)
             return []
         if phase is Phase.EXIT:
@@ -369,7 +379,7 @@ class Game:
     def _climb(self, p: int) -> None:
         """An arc from where he stands to the top of the chimney, then down it."""
         start_x = RUN_X
-        chimney_x = self.house_x + CHIMNEY_COLUMN - 14
+        chimney_x = self.house_x + sprites.chimney_center(self.current.house) - 16
         chimney_top = -(len(self.current.house) - 1)
         if p <= CLIMB_ARC:
             t = p / CLIMB_ARC
@@ -377,7 +387,3 @@ class Game:
             self.wolf_y = chimney_top * t - 40 * t * (1 - t)
         else:
             self.wolf_y += 2.5
-
-
-# The brick house's chimney, so he lands on it.
-CHIMNEY_COLUMN = 21
