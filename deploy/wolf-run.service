@@ -13,6 +13,9 @@ ExecStartPre=-/usr/bin/sudo -n /usr/bin/systemctl restart swimp3-console.service
 ExecStart=%h/wolf-run/.venv/bin/wolf-run screen
 Restart=always
 RestartSec=5
+# Qt's framebuffer backend catches the stop signal, puts the console back, and
+# exits with 1. That's a clean stop, not a crash, so don't report it as failed.
+SuccessExitStatus=1
 
 [Install]
 WantedBy=default.target
