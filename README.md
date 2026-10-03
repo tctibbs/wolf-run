@@ -3,19 +3,24 @@
 A little party screen for a Halloween escape room, built for a Raspberry Pi with a
 touchscreen.
 
-Most of the night it's just a clock in the corner of the living room. Then something
-in the game sets it off, and the clock turns into a retro runner, the kind you play
+Most of the night it's just a clock in the corner of the living room, with the wolf
+curled up asleep beside it. Then something in the game sets it off: the wolf wakes
+up, gets to his feet, and the screen tells you to press the button. Do it, and the
+clock turns into a retro runner, the kind you play
 when the internet goes down. You're the Big Bad Wolf. Jump the straw, the sticks and
 the bricks, make it all the way to Grandma's house, and... well, he eats her. Then
 the screen crackles into static and cuts to a live feed from the basement camera.
 
-![The clock, at a quarter to ten on Halloween](docs/images/clock.png)
+| Asleep | Primed |
+|---|---|
+| ![The clock with the wolf asleep](docs/images/clock.png) | ![The wolf awake, with PRESS THE BUTTON TO RUN](docs/images/primed.png) |
 
 ## The three stages
 
 | Stage | What's on screen | Status |
 |---|---|---|
-| 1. Clock | The time, dripping, with bats, a moon, and the pigs' houses | Done |
+| 1. Clock | The time, dripping, with bats, a moon, and the wolf asleep | Done |
+| 1b. Primed | The wolf wakes up and the screen says to press the button | Done |
 | 2. Wolf Run | The runner game, ending with Grandma as dinner | Sprites done, game next |
 | 3. The basement | A live camera feed | Camera check works |
 
@@ -35,8 +40,9 @@ uv run wolf-run camera-check
 To see the screen itself:
 
 ```bash
-uv run wolf-run screen --windowed                    # a 1024x600 window, Esc to close
+uv run wolf-run screen --windowed                    # a 1024x600 window: P primes, R resets, Esc closes
 uv run wolf-run screenshot --at "2026-10-31 21:47"   # one frame, saved as a PNG
+uv run wolf-run screenshot --seconds 6 --primed 2.5  # the same, primed 2.5 seconds ago
 ```
 
 ## Private stuff stays private
