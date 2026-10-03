@@ -19,6 +19,11 @@ class FakeCanvas:
             for dx in range(w):
                 self.pixels[(x + dx, y + dy)] = color
 
+    def noise(
+        self, x: int, y: int, w: int, h: int, seed: int, lo: int = 0, hi: int = 255
+    ) -> None:
+        self.fill(x, y, w, h, "noise")
+
     def at(self, x: int, y: int) -> str | None:
         return self.pixels.get((x, y))
 

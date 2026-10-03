@@ -46,6 +46,11 @@ _LEGS_JUMP = [
 ]
 
 
+def mirror(rows: list[str]) -> list[str]:
+    """Flip a sprite to face the other way."""
+    return [row[::-1] for row in rows]
+
+
 def _patch(rows: list[str], changes: dict[int, str]) -> list[str]:
     out = list(rows)
     for index, row in changes.items():
@@ -70,6 +75,21 @@ WOLF_OPEN = (
         },
     )
     + _LEGS_JUMP
+)
+WOLF_BLOW = (
+    _patch(
+        _WOLF_TOP,
+        {
+            4: "###................#####o####...",
+            5: "####..............##############",
+            6: ".####............######.#.#.#.#.",
+            7: "..####..........######..........",
+            8: "...####.......########..........",
+            9: "....###################.#.#.#...",
+            10: ".....#########################..",
+        },
+    )
+    + _LEGS_B
 )
 WOLF_CHOMP = (
     _patch(
@@ -145,6 +165,21 @@ GRANNY = [
     ".#...##....##...",
     ".#..###...###...",
 ]
+
+GRANNY_RUN_A = mirror(
+    [
+        *GRANNY[:22],
+        ".#..##......##..",
+        ".#.###.......###",
+    ]
+)
+GRANNY_RUN_B = mirror(
+    [
+        *GRANNY[:22],
+        ".#....####......",
+        ".#....#####.....",
+    ]
+)
 
 STRAW = [
     "..#...#....#....",
@@ -236,6 +271,7 @@ FONT = {
     "-": ["...", "...", "###", "...", "..."],
     ":": ["...", ".#.", "...", ".#.", "..."],
     ".": ["...", "...", "...", "...", ".#."],
+    "'": [".#.", ".#.", "...", "...", "..."],
     " ": ["...", "...", "...", "...", "..."],
 }
 
@@ -423,6 +459,9 @@ SPRITES = {
     "bulge": BULGE,
     "tongue": TONGUE,
     "granny": GRANNY,
+    "grannyRunA": GRANNY_RUN_A,
+    "grannyRunB": GRANNY_RUN_B,
+    "wolfBlow": WOLF_BLOW,
     "straw": STRAW,
     "sticks": STICKS,
     "bricks": BRICKS,

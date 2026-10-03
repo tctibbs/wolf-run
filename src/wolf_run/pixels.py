@@ -14,9 +14,13 @@ Grid = Sequence[str]
 
 
 class Canvas(Protocol):
-    """Anything that can fill a rectangle with a colour."""
+    """Anything that can fill a rectangle, or fill one with grey static."""
 
     def fill(self, x: int, y: int, w: int, h: int, color: str) -> None: ...
+
+    def noise(
+        self, x: int, y: int, w: int, h: int, seed: int, lo: int = 0, hi: int = 255
+    ) -> None: ...
 
 
 def paint(

@@ -173,19 +173,24 @@ def draw_clock(
     wolf is still asleep.
     """
     canvas.fill(0, 0, W, H, palette.bg)
-    _sky(canvas, t, palette)
-    _time(canvas, now, t, palette)
+    draw_sky(canvas, t, palette)
+    draw_time(canvas, now, t, palette)
     if primed_at is None:
         line = date_line(now)
         text(canvas, line, (W - text_width(line)) // 2, DATE_Y, palette.dim)
     elif prompt_visible(t, primed_at):
         x = (W - text_width(PROMPT, PROMPT_SCALE)) // 2
         text(canvas, PROMPT, x, DATE_Y - 2, palette.ink, PROMPT_SCALE)
-    _ground(canvas, t, palette)
+    draw_ground(canvas, palette)
+    draw_scenery(canvas, t, palette)
     _wolf(canvas, t, primed_at, palette)
 
 
-def _sky(canvas: Canvas, t: float, palette: Palette) -> None:
+def draw_sky(
+    canvas: Canvas, t: float, palette: Palette = NIGHT, with_bats: bool = True
+) -> None:
+    """Stars, the moon, and the bats. The game shares this sky, minus the bats,
+    which would fly through its scoreboard."""
     for x, y, kind in STARS:
         if (int(t * 4) + kind) % 7 == 0:
             continue
@@ -197,12 +202,19 @@ def _sky(canvas: Canvas, t: float, palette: Palette) -> None:
     disc(canvas, mx, my, r, palette.ink)
     for dx, dy, cw, ch in ((-5, -4, 3, 3), (2, 3, 4, 3), (4, -6, 2, 2), (-4, 5, 2, 2)):
         canvas.fill(mx + dx, my + dy, cw, ch, palette.dim)
-    for bat in bats(t):
+    for bat in bats(t) if with_bats else []:
         grid = sprites.BAT_UP if bat.wings_up else sprites.BAT_DOWN
         paint(canvas, grid, bat.x, bat.y, palette.ink, palette.bg)
 
 
-def _time(canvas: Canvas, now: datetime, t: float, palette: Palette) -> None:
+def draw_time(
+    canvas: Canvas,
+    now: datetime,
+    t: float,
+    palette: Palette = NIGHT,
+    top: int = DIGIT_TOP,
+) -> None:
+    """The big dripping time. `top` lets the game slide it up out of the way."""
     hhmm, meridiem = time_parts(now)
     font, scale = sprites.BIG_FONT, DIGIT_SCALE
     width = text_width(hhmm, scale, font)
@@ -212,42 +224,60 @@ def _time(canvas: Canvas, now: datetime, t: float, palette: Palette) -> None:
     for ch in hhmm:
         glyph = font[ch]
         if ch != ":" or colon_visible(t):
-            paint(canvas, glyph, x, DIGIT_TOP, palette.ink, palette.ink, scale)
+            paint(canvas, glyph, x, top, palette.ink, palette.ink, scale)
         if ch != ":":
-            _drip(canvas, glyph, x, t, digit, palette)
+            _drip(canvas, glyph, x, top, t, digit, palette)
             digit += 1
         x += (len(glyph[0]) + 1) * scale
-    bottom = DIGIT_TOP + 7 * scale
+    bottom = top + 7 * scale
     text(canvas, meridiem, x - scale + 4, bottom - 10, palette.dim, 2)
 
 
 def _drip(
-    canvas: Canvas, glyph: Grid, x: int, t: float, index: int, palette: Palette
+    canvas: Canvas,
+    glyph: Grid,
+    x: int,
+    top: int,
+    t: float,
+    index: int,
+    palette: Palette,
 ) -> None:
     """Hang a drip off the first inked pixel on the digit's bottom row."""
     column = glyph[-1].index("#")
     dx = x + column * DIGIT_SCALE + DIGIT_SCALE // 2 - 1
-    top = DIGIT_TOP + 7 * DIGIT_SCALE
+    bottom = top + 7 * DIGIT_SCALE
     length, fallen = drip(t, index)
-    canvas.fill(dx, top, 2, length, palette.ink)
+    canvas.fill(dx, bottom, 2, length, palette.ink)
     if fallen is not None:
-        canvas.fill(dx, top + 4 + fallen, 2, 2, palette.ink)
+        canvas.fill(dx, bottom + 4 + fallen, 2, 2, palette.ink)
 
 
-def _ground(canvas: Canvas, t: float, palette: Palette) -> None:
+def draw_ground(canvas: Canvas, palette: Palette = NIGHT, scroll: float = 0) -> None:
+    """The ground line and its specks, scrolled left by `scroll` pixels."""
     canvas.fill(0, GROUND_Y, W, 1, palette.ink)
     for x, kind in SPECKS:
+        sx = round((x - scroll) % W)
         if kind == 0:
-            canvas.fill(x, GROUND_Y - 1, 3, 1, palette.ink)
+            canvas.fill(sx, GROUND_Y - 1, 3, 1, palette.ink)
         else:
-            canvas.fill(x, GROUND_Y + 3 + kind * 3, 3 - kind, 1, palette.soft)
+            canvas.fill(sx, GROUND_Y + 3 + kind * 3, 3 - kind, 1, palette.soft)
+
+
+def draw_scenery(
+    canvas: Canvas, t: float, palette: Palette = NIGHT, scroll: float = 0
+) -> None:
+    """The pigs' houses, the pumpkin, and the tombstone. They scroll away for good
+    once the run starts."""
+    dx = -round(scroll)
     for grid, x in HOUSES:
-        paint(canvas, grid, x, GROUND_Y - len(grid), palette.ink, palette.glow)
+        paint(canvas, grid, x + dx, GROUND_Y - len(grid), palette.ink, palette.glow)
     tomb = sprites.TOMBSTONE
-    paint(canvas, tomb, TOMBSTONE_X, GROUND_Y - len(tomb), palette.ink, palette.bg)
+    paint(canvas, tomb, TOMBSTONE_X + dx, GROUND_Y - len(tomb), palette.ink, palette.bg)
     flicker = palette.glow if int(t * 7) % 5 else palette.dim
     pumpkin = sprites.PUMPKIN
-    paint(canvas, pumpkin, PUMPKIN_X, GROUND_Y - len(pumpkin), palette.ink, flicker)
+    paint(
+        canvas, pumpkin, PUMPKIN_X + dx, GROUND_Y - len(pumpkin), palette.ink, flicker
+    )
 
 
 def _wolf(canvas: Canvas, t: float, primed_at: float | None, palette: Palette) -> None:
