@@ -255,3 +255,76 @@ def test_frame_to_image_turns_opencv_blue_green_red_into_red():
     image = ui.frame_to_image(frame)
 
     assert image.pixelColor(0, 0) == QColor("#ff0000")
+
+
+def test_sprites_are_drawn_once_then_reused():
+    ui._sprites.clear()
+    image = QImage(6, 2, QImage.Format_RGB32)
+    image.fill(QColor("#000000"))
+    canvas = ui.ImageCanvas(image)
+
+    canvas.sprite(["#o."], 0, 0, "#ffffff", "#ff0000")
+    canvas.sprite(["#o."], 3, 0, "#ffffff", "#ff0000")
+    canvas.finish()
+
+    assert len(ui._sprites) == 1
+    assert image.pixelColor(0, 0) == QColor("#ffffff")
+    assert image.pixelColor(1, 0) == QColor("#ff0000")
+    assert image.pixelColor(2, 0) == QColor("#000000")  # '.' stays see-through
+    assert image.pixelColor(3, 0) == QColor("#ffffff")
+
+
+def test_scaled_sprites_and_empty_ones():
+    image = QImage(4, 4, QImage.Format_RGB32)
+    image.fill(QColor("#000000"))
+    canvas = ui.ImageCanvas(image)
+
+    canvas.sprite(["#"], 0, 0, "#00ff00", "#000000", scale=2)
+    canvas.sprite([], 0, 0, "#00ff00", "#000000")
+    canvas.finish()
+
+    assert image.pixelColor(1, 1) == QColor("#00ff00")
+    assert image.pixelColor(2, 2) == QColor("#000000")
+
+
+def test_cached_drawing_matches_pixel_by_pixel():
+    """The fast path must draw exactly what the slow one does."""
+    from conftest import FakeCanvas
+    from wolf_run.pixels import paint
+
+    image = QImage(clock.W, clock.H, QImage.Format_RGB32)
+    image.fill(QColor(NIGHT.bg))
+    canvas = ui.ImageCanvas(image)
+    paint(canvas, clock.sprites.BRICK_HOUSE_BIG, 10, 10, NIGHT.ink, NIGHT.glow)
+    canvas.finish()
+    fake = FakeCanvas()
+    paint(fake, clock.sprites.BRICK_HOUSE_BIG, 10, 10, NIGHT.ink, NIGHT.glow)
+
+    for (x, y), color in fake.pixels.items():
+        assert image.pixelColor(x, y) == QColor(color)
+
+
+def test_static_is_cut_from_a_few_reused_sheets():
+    ui._noise.clear()
+    image = QImage(clock.W, clock.H, QImage.Format_RGB32)
+    canvas = ui.ImageCanvas(image)
+
+    for seed in range(40):
+        canvas.noise(0, seed % 140, clock.W, 6, seed=seed)
+    canvas.noise(0, 0, clock.W, clock.H, seed=3)
+    canvas.finish()
+
+    assert len(ui._noise) == ui.NOISE_SHEETS
+
+
+def test_warming_up_fills_the_caches_before_anyone_plays():
+    ui._sprites.clear()
+    ui._noise.clear()
+
+    ui.warm_caches(HALLOWEEN_EVENING)
+
+    keys = {key[0] for key in ui._sprites}
+    assert tuple(clock.sprites.BRICK_HOUSE_BIG) in keys
+    assert tuple(clock.sprites.WOLF_FAT) in keys
+    assert tuple(clock.sprites.WOLF_SLEEP_A) in keys
+    assert ui._noise

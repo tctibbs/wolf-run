@@ -32,7 +32,15 @@ def paint(
     hole: str,
     scale: int = 1,
 ) -> None:
-    """Draw a sprite: '#' in ink, 'o' in the hole colour, '.' left alone."""
+    """Draw a sprite: '#' in ink, 'o' in the hole colour, '.' left alone.
+
+    A canvas that can stamp whole sprites (the Qt one caches each sprite as an
+    image) gets one call; anything else gets filled a pixel at a time.
+    """
+    stamp = getattr(canvas, "sprite", None)
+    if stamp is not None:
+        stamp(grid, x, y, ink, hole, scale)
+        return
     for r, row in enumerate(grid):
         for c, ch in enumerate(row):
             if ch == ".":

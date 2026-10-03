@@ -14,7 +14,7 @@ a Mac), so a guest mashing the keyboard can't trigger them:
 import os
 import sys
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -44,6 +44,54 @@ Scene = Callable[[Canvas, datetime, float], None]
 FeedFactory = Callable[[], CameraFeed | None]
 
 
+SpriteKey = tuple[tuple[str, ...], str, str, int]
+_sprites: dict[SpriteKey, QImage] = {}
+
+
+def sprite_image(grid: Sequence[str], ink: str, hole: str, scale: int) -> QImage:
+    """A sprite drawn once into a transparent image, then reused every frame.
+
+    Painting pixel by pixel costs a Pi 3 about 12 microseconds a pixel, which adds
+    up to a dropped frame for a big house. Stamping a cached image is one call.
+    """
+    key = (tuple(grid), ink, hole, scale)
+    image = _sprites.get(key)
+    if image is None:
+        width = max((len(row) for row in grid), default=0) * scale
+        image = QImage(
+            max(width, 1), max(len(grid) * scale, 1), QImage.Format_ARGB32_Premultiplied
+        )
+        image.fill(Qt.transparent)
+        painter = QPainter(image)
+        colors = {"#": QColor(ink), "o": QColor(hole)}
+        for r, row in enumerate(grid):
+            for c, ch in enumerate(row):
+                if ch in colors:
+                    painter.fillRect(c * scale, r * scale, scale, scale, colors[ch])
+        painter.end()
+        _sprites[key] = image
+    return image
+
+
+NOISE_SHEETS = 8
+_noise: dict[tuple[int, int, int], QImage] = {}
+
+
+def noise_sheet(lo: int, hi: int, which: int) -> QImage:
+    """One of a few screen-sized sheets of static, made once and cut up after.
+    Fresh random numbers every frame cost a Pi 3 more than the frame budget."""
+    key = (lo, hi, which % NOISE_SHEETS)
+    if key not in _noise:
+        grey = np.random.default_rng(key).integers(
+            lo, hi + 1, (clock.H, clock.W), np.uint8
+        )
+        sheet = QImage(grey.data, clock.W, clock.H, clock.W, QImage.Format_Grayscale8)
+        # Converted once, so drawing a band is a plain copy rather than a
+        # whole-sheet conversion every time.
+        _noise[key] = sheet.convertToFormat(QImage.Format_RGB32)
+    return _noise[key]
+
+
 class ImageCanvas:
     """A Canvas that paints into a QImage."""
 
@@ -57,12 +105,19 @@ class ImageCanvas:
             qcolor = self._colors[color] = QColor(color)
         self._painter.fillRect(x, y, w, h, qcolor)
 
+    def sprite(
+        self, grid: Sequence[str], x: int, y: int, ink: str, hole: str, scale: int = 1
+    ) -> None:
+        if grid:
+            self._painter.drawImage(x, y, sprite_image(grid, ink, hole, scale))
+
     def noise(
         self, x: int, y: int, w: int, h: int, seed: int, lo: int = 0, hi: int = 255
     ) -> None:
-        grey = np.random.default_rng(seed).integers(lo, hi + 1, (h, w), np.uint8)
-        static = QImage(grey.data, w, h, w, QImage.Format_Grayscale8)
-        self._painter.drawImage(x, y, static)
+        sheet = noise_sheet(lo, hi, seed)
+        w, h = min(w, sheet.width()), min(h, sheet.height())
+        top = (seed * 7) % (sheet.height() - h + 1)
+        self._painter.drawImage(QRect(x, y, w, h), sheet, QRect(0, top, w, h))
 
     def finish(self) -> None:
         self._painter.end()
@@ -235,6 +290,45 @@ def ensure_app(offscreen: bool = False) -> QApplication:
     return app
 
 
+def warm_caches(now: datetime | None = None) -> None:
+    """Rehearse every house's ending offscreen, so the sprite and static caches are
+    full before anyone plays. Otherwise the first game stutters while they fill.
+    Takes a couple of seconds on a Pi 3, once, at startup."""
+    from wolf_run.game import LEVELS
+    from wolf_run.stages import Screen
+
+    now = now or datetime.now()
+    for primed in (False, True):
+        screen = Screen()
+        if primed:
+            screen.prime(0.0)
+        for i in range(0, 90, 3):
+            render(screen.draw, now, i / 30)
+    for level in range(len(LEVELS)):
+        screen = Screen(seed=level, demo=True)
+        screen.prime(0.0)
+        screen.press(0.0)
+        game = screen.game
+        assert game is not None
+        game._start_level(level)
+        game.progress, game.scroll = 1.0, 1000.0
+        t = 0.0
+        while (
+            screen.stage is Stage.GAME and screen.game is game and game.level == level
+        ):
+            t += 1 / 30
+            screen.update(t)
+            render(screen.draw, now, t)
+            if t > 60:
+                break
+
+    def camera(canvas: Canvas, when: datetime, at: float) -> None:
+        camera_scene.draw_camera_osd(canvas, when, at, live=False)
+
+    for i in range(NOISE_SHEETS):
+        render(camera, now, i / 15)
+
+
 def camera_feed_factory(env_path: Path = Path(".env")) -> FeedFactory:
     """Build camera feeds from .env, or none at all if it isn't set up yet."""
     from wolf_run import config
@@ -250,6 +344,7 @@ def camera_feed_factory(env_path: Path = Path(".env")) -> FeedFactory:
 def run(windowed: bool) -> int:  # pragma: no cover - needs a real display
     """Show the screen until the host quits it."""
     app = ensure_app()
+    warm_caches()
     window = ScreenWindow(feed_factory=camera_feed_factory(), windowed=windowed)
     if windowed:
         window.resize(PANEL_W, PANEL_H)
