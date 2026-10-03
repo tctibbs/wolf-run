@@ -21,8 +21,8 @@ the screen crackles into static and cuts to a live feed from the basement camera
 |---|---|---|
 | 1. Clock | The time, dripping, with bats, a moon, and the wolf asleep | Done |
 | 1b. Primed | The wolf wakes up and the screen says to press any button | Done |
-| 2. Wolf Run | The runner game, ending with Grandma as dinner | Sprites done, game next |
-| 3. The basement | A live camera feed | Camera check works |
+| 2. Wolf Run | Three houses, three levels, and Grandma as dinner | Done (sound to come) |
+| 3. The basement | A live camera feed, security-camera style | Done |
 
 ## Getting started
 
@@ -40,10 +40,31 @@ uv run wolf-run camera-check
 To see the screen itself:
 
 ```bash
-uv run wolf-run screen --windowed                    # a 1024x600 window: P primes, R resets, Esc closes
+uv run wolf-run screen --windowed                    # a 1024x600 window; Esc closes
 uv run wolf-run screenshot --at "2026-10-31 21:47"   # one frame, saved as a PNG
 uv run wolf-run screenshot --seconds 6 --primed 2.5  # the same, primed 2.5 seconds ago
 ```
+
+## Playing it
+
+Any key, click, or tap is "the button". Hold it to jump higher, like the dinosaur
+game; a quick tap is a short hop.
+
+Grandma runs off and hides in the straw hut, then the stick house, then the brick
+house. Each house is a level. Reach one and the wolf huffs and puffs it down, and
+Grandma runs on to the next. Crash and you start that level again, not the whole
+game. The brick house won't blow down, so the wolf goes down the chimney instead.
+A perfect run takes under two minutes; expect about five with practice.
+
+The host's controls need Ctrl (Cmd on a Mac), so a guest mashing keys can't hit
+them:
+
+| Keys | Does |
+|---|---|
+| Ctrl+P | Prime the screen: the wolf wakes up and asks for the button |
+| Ctrl+R | Back to the sleeping clock |
+| Ctrl+E | Skip to the brick house |
+| Ctrl+Q | Quit |
 
 ## Private stuff stays private
 
