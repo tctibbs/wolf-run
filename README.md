@@ -5,7 +5,7 @@ touchscreen.
 
 Most of the night it's just a clock in the corner of the living room, with the wolf
 curled up asleep beside it. Then something in the game sets it off: the wolf wakes
-up, gets to his feet, and the screen tells you to press the button. Do it, and the
+up, gets to his feet, and the screen tells you to press any button. Do it, and the
 clock turns into a retro runner, the kind you play
 when the internet goes down. You're the Big Bad Wolf. Jump the straw, the sticks and
 the bricks, make it all the way to Grandma's house, and... well, he eats her. Then
@@ -13,14 +13,14 @@ the screen crackles into static and cuts to a live feed from the basement camera
 
 | Asleep | Primed |
 |---|---|
-| ![The clock with the wolf asleep](docs/images/clock.png) | ![The wolf awake, with PRESS THE BUTTON TO RUN](docs/images/primed.png) |
+| ![The clock with the wolf asleep](docs/images/clock.png) | ![The wolf awake, with PRESS ANY BUTTON TO RUN](docs/images/primed.png) |
 
 ## The three stages
 
 | Stage | What's on screen | Status |
 |---|---|---|
 | 1. Clock | The time, dripping, with bats, a moon, and the wolf asleep | Done |
-| 1b. Primed | The wolf wakes up and the screen says to press the button | Done |
+| 1b. Primed | The wolf wakes up and the screen says to press any button | Done |
 | 2. Wolf Run | The runner game, ending with Grandma as dinner | Sprites done, game next |
 | 3. The basement | A live camera feed | Camera check works |
 

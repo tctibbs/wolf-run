@@ -19,7 +19,7 @@ GROUND_Y = 120
 DIGIT_SCALE = 6
 DIGIT_TOP = 24
 DATE_Y = 88
-PROMPT = "PRESS THE BUTTON TO RUN"
+PROMPT = "PRESS ANY BUTTON TO RUN"
 PROMPT_SCALE = 2
 
 # Stars stay out of the box around the time and date, so they never read as digits.
