@@ -1,0 +1,22 @@
+# Private settings: camera address and login, webhooks
+.env
+.env.*
+!.env.example
+
+# Frames grabbed from the camera
+snapshots/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
+
+# OS and editors
+.DS_Store
+.idea/
+*.swp
