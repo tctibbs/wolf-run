@@ -1,5 +1,7 @@
 # Wolf Run
 
+[![Tests](https://github.com/tctibbs/wolf-run/actions/workflows/ci.yml/badge.svg)](https://github.com/tctibbs/wolf-run/actions/workflows/ci.yml)
+
 I made Wolf Run for a Halloween escape room I hosted. It runs on a Raspberry Pi with
 a small touchscreen that sits in the living room.
 

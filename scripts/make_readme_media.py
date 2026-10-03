@@ -7,6 +7,7 @@ into GIFs with ffmpeg (which needs to be installed). There's no camera footage:
 the clips stop at the static, because the basement is somebody's real basement.
 """
 
+import random
 import shutil
 import subprocess
 import sys
@@ -21,7 +22,7 @@ from PyQt5.QtGui import QImage
 from wolf_run import clock, sprites, ui
 from wolf_run.game import Phase
 from wolf_run.palette import NIGHT
-from wolf_run.pixels import Grid, paint, text
+from wolf_run.pixels import Grid, disc, paint, text, text_width
 from wolf_run.stages import Screen, Stage
 
 OUT = Path(__file__).resolve().parent.parent / "docs" / "images"
@@ -169,6 +170,47 @@ def cast() -> QImage:
     return image
 
 
+def social_preview() -> QImage:
+    """The 1280x640 card GitHub shows when someone shares the repo's link."""
+    width, height, ground = 320, 160, 136
+    image = QImage(width, height, QImage.Format_RGB32)
+    canvas = ui.ImageCanvas(image)
+    canvas.fill(0, 0, width, height, NIGHT.bg)
+    title, scale = "WOLF RUN", 4
+    title_w = text_width(title, scale, sprites.BIG_FONT)
+    title_x, title_y = (width - title_w) // 2 - 16, 22
+    rng = random.Random(31)
+    for _ in range(40):
+        x, y = rng.randrange(width), rng.randrange(ground - 50)
+        if (
+            title_x - 6 <= x <= title_x + title_w + 6
+            and title_y - 6 <= y <= title_y + 34
+        ):
+            continue
+        canvas.fill(x, y, 1, 1, NIGHT.dim)
+    disc(canvas, 284, 32, 14, NIGHT.ink)
+    for dx, dy, w, h in ((-6, -5, 4, 3), (3, 4, 5, 4), (5, -7, 2, 2), (-5, 6, 2, 2)):
+        canvas.fill(284 + dx, 32 + dy, w, h, NIGHT.dim)
+    text(canvas, title, title_x, title_y, NIGHT.ink, scale, sprites.BIG_FONT)
+    canvas.fill(0, ground, width, 1, NIGHT.ink)
+    house = sprites.BRICK_HOUSE_BIG
+    paint(canvas, house, 250, ground - len(house), NIGHT.ink, NIGHT.glow)
+    paint(
+        canvas,
+        sprites.PUMPKIN,
+        14,
+        ground - len(sprites.PUMPKIN),
+        NIGHT.ink,
+        NIGHT.glow,
+    )
+    granny = sprites.GRANNY_RUN_A
+    paint(canvas, granny, 212, ground - len(granny), NIGHT.ink, NIGHT.bg)
+    paint(canvas, sprites.STRAW, 120, ground - len(sprites.STRAW), NIGHT.ink, NIGHT.bg)
+    paint(canvas, sprites.WOLF_JUMP, 100, ground - 22 - 24, NIGHT.ink, NIGHT.bg)
+    canvas.finish()
+    return image
+
+
 def save_gif(name: str, frames: Iterator[QImage]) -> Path:
     path = OUT / f"{name}.gif"
     with tempfile.TemporaryDirectory() as folder:
@@ -224,6 +266,11 @@ def main() -> int:
         Qt.FastTransformation,
     ).save(str(OUT / "cast.png"))
     print("cast.png")
+    card = social_preview()
+    card.scaled(1280, 640, Qt.IgnoreAspectRatio, Qt.FastTransformation).save(
+        str(OUT / "social-preview.png")
+    )
+    print("social-preview.png (upload it under Settings > General > Social preview)")
     return 0
 
 

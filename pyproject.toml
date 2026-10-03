@@ -1,13 +1,19 @@
 [project]
 name = "wolf-run"
 version = "0.1.0"
-description = "A Halloween party screen for a Raspberry Pi: a clock, a retro wolf runner game, then a live feed from the basement camera."
+description = "A Halloween game for a Raspberry Pi: a clock with a sleeping wolf, a retro runner where you play the Big Bad Wolf, and a live camera at the end."
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Tristan Tibbs" }]
 requires-python = ">=3.11"
 dependencies = [
     "opencv-python-headless>=4.9,<5",
     "python-dotenv>=1.0",
 ]
+
+[project.urls]
+Repository = "https://github.com/tctibbs/wolf-run"
 
 [project.scripts]
 wolf-run = "wolf_run.cli:main"
