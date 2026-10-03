@@ -1,0 +1,18 @@
+[Unit]
+Description=Wolf Run on the touchscreen
+# Only one thing can own the screen. Starting either of these stops the other,
+# so "systemctl --user start swimp3-gui" is all it takes to get swimp3 back.
+Conflicts=swimp3-gui.service swimp3-panel.service
+
+[Service]
+Type=simple
+WorkingDirectory=%h/wolf-run
+Environment=QT_QPA_PLATFORM=linuxfb:fb=/dev/fb0
+Environment=QT_QPA_FB_HIDECURSOR=1
+ExecStartPre=-/usr/bin/sudo -n /usr/bin/systemctl restart swimp3-console.service
+ExecStart=%h/wolf-run/.venv/bin/wolf-run screen
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target
