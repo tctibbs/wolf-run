@@ -9,11 +9,13 @@ when the internet goes down. You're the Big Bad Wolf. Jump the straw, the sticks
 the bricks, make it all the way to Grandma's house, and... well, he eats her. Then
 the screen crackles into static and cuts to a live feed from the basement camera.
 
+![The clock, at a quarter to ten on Halloween](docs/images/clock.png)
+
 ## The three stages
 
 | Stage | What's on screen | Status |
 |---|---|---|
-| 1. Clock | The time, minding its own business | Not built yet |
+| 1. Clock | The time, dripping, with bats, a moon, and the pigs' houses | Done |
 | 2. Wolf Run | The runner game, ending with Grandma as dinner | Sprites done, game next |
 | 3. The basement | A live camera feed | Camera check works |
 
@@ -29,6 +31,13 @@ uv run wolf-run camera-check
 
 `camera-check` grabs one frame from the camera and saves it to
 `snapshots/camera-check.jpg`, so you can see it's really working.
+
+To see the screen itself:
+
+```bash
+uv run wolf-run screen --windowed                    # a 1024x600 window, Esc to close
+uv run wolf-run screenshot --at "2026-10-31 21:47"   # one frame, saved as a PNG
+```
 
 ## Private stuff stays private
 
