@@ -1,6 +1,7 @@
 """The wolf-run command."""
 
 import argparse
+import os
 import sys
 from dataclasses import replace
 from datetime import datetime
@@ -23,6 +24,11 @@ def main(argv: list[str] | None = None) -> int:
         "--windowed",
         action="store_true",
         help="use a 1024x600 window instead of full screen",
+    )
+    screen.add_argument(
+        "--primed",
+        action="store_true",
+        help="start with the wolf awake, waiting for a button (or WOLF_RUN_PRIMED=1)",
     )
 
     shot = commands.add_parser("screenshot", help="save one frame of the screen")
@@ -70,17 +76,18 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
     if args.command == "screen":
-        return show_screen(args.windowed)
+        primed = args.primed or os.environ.get("WOLF_RUN_PRIMED") == "1"
+        return show_screen(args.windowed, primed)
     if args.command == "screenshot":
         when = args.at or datetime.now()
         return screenshot(when, args.seconds, args.out, args.primed)
     return camera_check(args.env, args.stream, args.snapshot)
 
 
-def show_screen(windowed: bool) -> int:
+def show_screen(windowed: bool, primed: bool = False) -> int:
     from wolf_run import ui  # Qt only loads for the commands that need it
 
-    return ui.run(windowed)
+    return ui.run(windowed, primed)
 
 
 def screenshot(

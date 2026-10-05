@@ -28,7 +28,8 @@ uv run wolf-run screen --windowed
 ```
 
 Ctrl+P (Cmd+P on a Mac) wakes the wolf, then any key plays. Ctrl+E skips to the brick
-house, Ctrl+R resets, and Ctrl+Q quits.
+house, Ctrl+R resets, and Ctrl+Q quits. `--primed` (or `WOLF_RUN_PRIMED=1`) starts with
+the wolf already awake.
 
 For the camera at the end, copy `.env.example` to `.env` and fill in your RTSP
 camera. `uv run wolf-run camera-check` tells you if it's working.

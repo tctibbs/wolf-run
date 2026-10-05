@@ -341,11 +341,13 @@ def camera_feed_factory(env_path: Path = Path(".env")) -> FeedFactory:
     return lambda: CameraFeed(settings.rtsp_url())
 
 
-def run(windowed: bool) -> int:  # pragma: no cover - needs a real display
-    """Show the screen until the host quits it."""
+def run(windowed: bool, primed: bool = False) -> int:  # pragma: no cover
+    """Show the screen until the host quits it, primed from the start if asked."""
     app = ensure_app()
     warm_caches()
     window = ScreenWindow(feed_factory=camera_feed_factory(), windowed=windowed)
+    if primed:
+        window.screen.prime(window.elapsed())
     if windowed:
         window.resize(PANEL_W, PANEL_H)
         window.show()

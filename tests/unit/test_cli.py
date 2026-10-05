@@ -130,7 +130,27 @@ def test_screen_opens_the_window(mocker):
     run = mocker.patch("wolf_run.ui.run", return_value=0)
 
     assert cli.main(["screen", "--windowed"]) == 0
-    run.assert_called_once_with(True)
+    run.assert_called_once_with(True, False)
+
+
+def test_screen_can_start_primed(mocker, monkeypatch):
+    monkeypatch.delenv("WOLF_RUN_PRIMED", raising=False)
+    run = mocker.patch("wolf_run.ui.run", return_value=0)
+
+    cli.main(["screen", "--primed"])
+
+    run.assert_called_once_with(False, True)
+
+
+def test_the_service_can_prime_it_with_an_environment_variable(mocker, monkeypatch):
+    run = mocker.patch("wolf_run.ui.run", return_value=0)
+
+    monkeypatch.setenv("WOLF_RUN_PRIMED", "1")
+    cli.main(["screen"])
+    monkeypatch.setenv("WOLF_RUN_PRIMED", "0")
+    cli.main(["screen"])
+
+    assert [c.args for c in run.call_args_list] == [(False, True), (False, False)]
 
 
 def test_screenshot_can_show_the_screen_primed(mocker):
