@@ -9,6 +9,8 @@ Type=simple
 WorkingDirectory=%h/wolf-run
 Environment=QT_QPA_PLATFORM=linuxfb:fb=/dev/fb0
 Environment=QT_QPA_FB_HIDECURSOR=1
+# Lets the host's control page wake, skip, and reset it over the home network.
+Environment=WOLF_RUN_CONTROL_PORT=8034
 ExecStartPre=-/usr/bin/sudo -n /usr/bin/systemctl restart swimp3-console.service
 ExecStart=%h/wolf-run/.venv/bin/wolf-run screen
 Restart=always

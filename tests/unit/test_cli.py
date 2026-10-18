@@ -160,3 +160,102 @@ def test_screenshot_can_show_the_screen_primed(mocker):
 
     scene = save.call_args.args[3]
     assert scene.__self__.since == 3.5
+
+
+@pytest.fixture
+def local_control(mocker, monkeypatch):
+    """Run --control on a free port on this computer only, and keep the servers."""
+    from wolf_run import control
+
+    monkeypatch.delenv("WOLF_RUN_CONTROL_PORT", raising=False)
+    monkeypatch.delenv("WOLF_RUN_PRIMED", raising=False)
+    real_start = control.start
+    servers = []
+
+    def start(port, commands, status):
+        servers.append(real_start(0, commands, status, host="127.0.0.1"))
+        return servers[-1]
+
+    mocker.patch("wolf_run.control.start", side_effect=start)
+    mocker.patch("wolf_run.control.lan_address", return_value="192.168.1.23")
+    return servers
+
+
+def test_control_listens_while_the_screen_runs_and_stops_after(
+    local_control, mocker, capsys
+):
+    import json
+    import urllib.request
+
+    seen = {}
+
+    def run(windowed, primed, commands, status):
+        port = local_control[0].server_port
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/state") as reply:
+            seen["state"] = json.loads(reply.read())
+        urllib.request.urlopen(
+            urllib.request.Request(f"http://127.0.0.1:{port}/skip", method="POST")
+        ).close()
+        seen["command"] = commands.get_nowait()
+        return 0
+
+    mocker.patch("wolf_run.ui.run", side_effect=run)
+
+    assert cli.main(["screen", "--primed", "--control", "8034"]) == 0
+
+    server = local_control[0]
+    assert seen == {"state": {"stage": "primed"}, "command": "skip"}
+    assert f"http://192.168.1.23:{server.server_port}" in capsys.readouterr().out
+    assert server.socket.fileno() == -1  # closed once the screen quits
+
+
+def test_control_port_can_come_from_the_environment(local_control, mocker, monkeypatch):
+    run = mocker.patch("wolf_run.ui.run", return_value=0)
+    monkeypatch.setenv("WOLF_RUN_CONTROL_PORT", "8034")
+
+    cli.main(["screen"])
+
+    assert len(local_control) == 1
+    assert run.call_args.kwargs["status"] == {"stage": "clock"}
+
+
+def test_the_flag_beats_the_environment(mocker, monkeypatch):
+    run = mocker.patch("wolf_run.ui.run", return_value=0)
+    monkeypatch.setenv("WOLF_RUN_CONTROL_PORT", "8034")
+    monkeypatch.delenv("WOLF_RUN_PRIMED", raising=False)
+
+    cli.main(["screen", "--control", "0"])
+
+    run.assert_called_once_with(False, False)
+
+
+def test_a_bad_control_port_in_the_environment_is_explained(
+    mocker, monkeypatch, capsys
+):
+    run = mocker.patch("wolf_run.ui.run", return_value=0)
+    monkeypatch.setenv("WOLF_RUN_CONTROL_PORT", "wolf")
+
+    assert cli.main(["screen"]) == 1
+    assert (
+        "WOLF_RUN_CONTROL_PORT: 'wolf' isn't a port number" in capsys.readouterr().err
+    )
+    run.assert_not_called()
+
+
+@pytest.mark.parametrize("port", ["-1", "70000", "eighty"])
+def test_a_bad_control_flag_is_refused(port, capsys):
+    with pytest.raises(SystemExit):
+        cli.main(["screen", "--control", port])
+
+    assert "isn't a port number" in capsys.readouterr().err
+
+
+def test_a_busy_control_port_stops_before_the_screen_opens(mocker, capsys):
+    run = mocker.patch("wolf_run.ui.run", return_value=0)
+    mocker.patch(
+        "wolf_run.control.start", side_effect=RuntimeError("Port 8034 is busy.")
+    )
+
+    assert cli.main(["screen", "--control", "8034"]) == 1
+    assert "Port 8034 is busy." in capsys.readouterr().err
+    run.assert_not_called()

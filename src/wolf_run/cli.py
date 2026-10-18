@@ -2,15 +2,18 @@
 
 import argparse
 import os
+import queue
 import sys
 from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
-from wolf_run import camera, config
-from wolf_run.stages import Screen
+from wolf_run import camera, config, control
+from wolf_run.stages import Screen, Stage
 
 CAMERA_HINT = "Check CAMERA_HOST, the login, and that RTSP is on in the Reolink app."
+CONTROL_ENV = "WOLF_RUN_CONTROL_PORT"
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -29,6 +32,15 @@ def main(argv: list[str] | None = None) -> int:
         "--primed",
         action="store_true",
         help="start with the wolf awake, waiting for a button (or WOLF_RUN_PRIMED=1)",
+    )
+    screen.add_argument(
+        "--control",
+        type=port_number,
+        metavar="PORT",
+        help=(
+            "take commands from other computers on the network on this port "
+            f"(or {CONTROL_ENV}; default: 0, off)"
+        ),
     )
 
     shot = commands.add_parser("screenshot", help="save one frame of the screen")
@@ -77,17 +89,59 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.command == "screen":
         primed = args.primed or os.environ.get("WOLF_RUN_PRIMED") == "1"
-        return show_screen(args.windowed, primed)
+        try:
+            port = control_port(args.control)
+        except argparse.ArgumentTypeError as error:
+            print(error, file=sys.stderr)
+            return 1
+        return show_screen(args.windowed, primed, port)
     if args.command == "screenshot":
         when = args.at or datetime.now()
         return screenshot(when, args.seconds, args.out, args.primed)
     return camera_check(args.env, args.stream, args.snapshot)
 
 
-def show_screen(windowed: bool, primed: bool = False) -> int:
+def port_number(text: str) -> int:
+    """A port from the command line or the environment, where 0 means off."""
+    try:
+        port = int(text)
+    except ValueError:
+        port = -1
+    if not 0 <= port <= 65535:
+        raise argparse.ArgumentTypeError(f"{text!r} isn't a port number (0 to 65535).")
+    return port
+
+
+def control_port(flag: int | None) -> int:
+    """The network control's port: --control, then WOLF_RUN_CONTROL_PORT, then off."""
+    if flag is not None:
+        return flag
+    value = os.environ.get(CONTROL_ENV, "").strip()
+    try:
+        return port_number(value) if value else 0
+    except argparse.ArgumentTypeError as error:
+        raise argparse.ArgumentTypeError(f"{CONTROL_ENV}: {error}") from None
+
+
+def show_screen(windowed: bool, primed: bool = False, port: int = 0) -> int:
+    """Show the screen, listening for the network control if given a port."""
     from wolf_run import ui  # Qt only loads for the commands that need it
 
-    return ui.run(windowed, primed)
+    if not port:
+        return ui.run(windowed, primed)
+    commands: queue.Queue[str] = queue.Queue()
+    status: dict[str, Any] = {"stage": (Stage.PRIMED if primed else Stage.CLOCK).value}
+    try:
+        server = control.start(port, commands, lambda: dict(status))
+    except RuntimeError as error:
+        print(error, file=sys.stderr)
+        return 1
+    print(f"Taking commands at http://{control.lan_address()}:{server.server_port}")
+    try:
+        return ui.run(windowed, primed, commands=commands, status=status)
+    finally:
+        server.shutdown()
+        server.server_close()
 
 
 def screenshot(

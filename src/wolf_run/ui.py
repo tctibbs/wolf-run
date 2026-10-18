@@ -9,9 +9,13 @@ a Mac), so a guest mashing the keyboard can't trigger them:
 
     Ctrl+P  prime the screen       Ctrl+E  skip to the brick house
     Ctrl+R  back to the clock      Ctrl+Q  quit
+
+The network control (control.py) sends the same commands through a queue, which
+the window drains at the start of every frame, on the main thread.
 """
 
 import os
+import queue
 import sys
 import time
 from collections.abc import Callable, Sequence
@@ -32,7 +36,7 @@ from PyQt5.QtGui import (
 )
 from PyQt5.QtWidgets import QApplication, QWidget
 
-from wolf_run import camera_scene, clock
+from wolf_run import camera_scene, clock, control
 from wolf_run.camera import CameraFeed
 from wolf_run.pixels import Canvas
 from wolf_run.stages import Screen, Stage
@@ -42,6 +46,8 @@ FPS = 30
 
 Scene = Callable[[Canvas, datetime, float], None]
 FeedFactory = Callable[[], CameraFeed | None]
+
+HOST_KEYS = {Qt.Key_P: "prime", Qt.Key_E: "skip", Qt.Key_R: "reset"}
 
 
 SpriteKey = tuple[tuple[str, ...], str, str, int]
@@ -184,12 +190,17 @@ class ScreenWindow(QWidget):
         seconds: Callable[[], float] = time.monotonic,
         feed_factory: FeedFactory | None = None,
         windowed: bool = True,
+        commands: queue.Queue[str] | None = None,
+        status: dict[str, Any] | None = None,
     ) -> None:
         super().__init__()
         self.setWindowTitle("Wolf Run")
         self.screen = screen or Screen()
         self._now, self._seconds = now, seconds
         self._feed_factory, self._windowed = feed_factory, windowed
+        self._commands = commands
+        self.status: dict[str, Any] = {} if status is None else status
+        control.publish(self.status, self.screen)
         self.feed: CameraFeed | None = None
         self._start = seconds()
         self._image = render(self.screen.draw, now(), 0.0)
@@ -204,7 +215,9 @@ class ScreenWindow(QWidget):
 
     def tick(self) -> None:
         t, now = self.elapsed(), self._now()
+        self._take_commands(t)
         self.screen.update(t)
+        control.publish(self.status, self.screen)
         self._manage_feed()
         frame = self.feed.latest() if self.feed else None
         if self.screen.stage is Stage.CAMERA and frame is not None:
@@ -218,6 +231,17 @@ class ScreenWindow(QWidget):
             self._camera = self._overlay = None
             self._image = render(self.screen.draw, now, t)
         self.update()
+
+    def _take_commands(self, t: float) -> None:
+        """Apply whatever the network control queued since the last frame."""
+        if self._commands is None:
+            return
+        while True:
+            try:
+                name = self._commands.get_nowait()
+            except queue.Empty:
+                return
+            control.apply_command(self.screen, name, t)
 
     def _manage_feed(self) -> None:
         """Connect to the camera when the ending needs it; hang up after a reset."""
@@ -270,12 +294,8 @@ class ScreenWindow(QWidget):
         super().closeEvent(event)
 
     def _host_key(self, key: int, t: float) -> None:
-        if key == Qt.Key_P:
-            self.screen.prime(t)
-        elif key == Qt.Key_R:
-            self.screen.reset(t)
-        elif key == Qt.Key_E:
-            self.screen.skip_to_ending(t)
+        if key in HOST_KEYS:
+            control.apply_command(self.screen, HOST_KEYS[key], t)
         elif key == Qt.Key_Q:
             self.close()
 
@@ -341,13 +361,25 @@ def camera_feed_factory(env_path: Path = Path(".env")) -> FeedFactory:
     return lambda: CameraFeed(settings.rtsp_url())
 
 
-def run(windowed: bool, primed: bool = False) -> int:  # pragma: no cover
-    """Show the screen until the host quits it, primed from the start if asked."""
+def run(
+    windowed: bool,
+    primed: bool = False,
+    commands: queue.Queue[str] | None = None,
+    status: dict[str, Any] | None = None,
+) -> int:  # pragma: no cover
+    """Show the screen until the host quits it, primed from the start if asked.
+    With a commands queue and a status dict, the network control drives it too."""
     app = ensure_app()
     warm_caches()
-    window = ScreenWindow(feed_factory=camera_feed_factory(), windowed=windowed)
+    window = ScreenWindow(
+        feed_factory=camera_feed_factory(),
+        windowed=windowed,
+        commands=commands,
+        status=status,
+    )
     if primed:
         window.screen.prime(window.elapsed())
+        control.publish(window.status, window.screen)
     if windowed:
         window.resize(PANEL_W, PANEL_H)
         window.show()
