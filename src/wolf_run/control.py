@@ -1,6 +1,10 @@
 """A small network control, so another computer or a phone can drive the screen.
 
-    GET  /state                  which stage it's on, and the house while playing
+    GET  /state                  which stage it's on, and the house while playing;
+                                 with a card watch, whether the card reads, the
+                                 outline ("card_spot": [l, t, w, h]) and, while it
+                                 reads, the card ("card_corners": [[x, y] x4]), as
+                                 fractions of the camera picture
     POST /prime /skip /reset     the same as the host's Ctrl+P, Ctrl+E, and Ctrl+R
     POST /card                   whether the camera can read the card, and where:
                                  {"found": true, "corners": [[x, y] x4],
@@ -143,7 +147,12 @@ def start(
             if self._route() == "state":
                 state = status()
                 if sightings is not None:
-                    state["card"] = "reading" if sightings.seen() else "waiting"
+                    seen = sightings.seen()
+                    state["card"] = "reading" if seen else "waiting"
+                    if seen:
+                        state["card_corners"] = [[round(v, 4) for v in c] for c in seen]
+                if spot is not None and spot.box is not None:
+                    state["card_spot"] = [round(v, 4) for v in spot.box]
                 self._reply(200, state)
             else:
                 self._reply(404, {"error": HELP})

@@ -409,3 +409,19 @@ def test_state_says_whether_the_card_reads(spotted):
     assert call(f"{url}/state")[1]["card"] == "waiting"
     sightings.report(((0.5, 0.25), (0.6, 0.25), (0.6, 0.55), (0.5, 0.55)))
     assert call(f"{url}/state")[1]["card"] == "reading"
+
+
+def test_state_says_where_the_outline_and_the_card_are(spotted):
+    url, sightings, _ = spotted
+    state = call(f"{url}/state")[1]
+    assert state["card_spot"] == [0.4, 0.25, 0.15, 0.4]
+    assert "card_corners" not in state, "only while it reads"
+
+    sightings.report(((0.5, 0.25), (0.6, 0.25), (0.6, 0.55), (0.5, 0.55)))
+    state = call(f"{url}/state")[1]
+    assert state["card_corners"] == [[0.5, 0.25], [0.6, 0.25], [0.6, 0.55], [0.5, 0.55]]
+
+
+def test_no_spot_means_no_outline_in_state(sighted):
+    url, _, _ = sighted
+    assert "card_spot" not in call(f"{url}/state")[1]
