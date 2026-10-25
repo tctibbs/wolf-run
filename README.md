@@ -34,6 +34,23 @@ the wolf already awake.
 For the camera at the end, copy `.env.example` to `.env` and fill in your RTSP
 camera. `uv run wolf-run camera-check` tells you if it's working.
 
+## Power cuts
+
+The screen remembers where it was: the clock, the wolf awake, the house the chase
+reached, or the camera. After a power cut it starts right back there. If the chase was
+on, the wolf is awake again and the next press picks up at the house they'd reached.
+Ctrl+R puts it back to the clock. It keeps its place in
+`~/.local/state/wolf-run/place.json` (or wherever `WOLF_RUN_STATE` says;
+`WOLF_RUN_STATE=off` starts at the clock every time).
+
+## On the Pi
+
+`scripts/deploy-pi.sh` copies it to the Pi and installs two user services without
+starting anything. `systemctl --user start wolf-run` puts it on the screen now, and
+`systemctl --user enable wolf-run-boot` puts it there at every boot, even if another
+app starts first. The Pi starts user services at boot only with lingering on
+(`loginctl enable-linger`).
+
 ## Controlling it from another computer
 
 The screen can also take the host's commands over the network, so a phone, a laptop,

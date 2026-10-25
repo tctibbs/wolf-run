@@ -9,9 +9,10 @@ import random
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
+from typing import Any
 
 from wolf_run import camera_scene, clock, game_scene
-from wolf_run.game import STEPS_PER_SECOND, Game
+from wolf_run.game import LEVELS, STEPS_PER_SECOND, Game
 from wolf_run.pixels import Canvas
 
 MAX_CATCH_UP = 10  # steps; after a long stall, skip ahead rather than fast-forward
@@ -31,6 +32,7 @@ class Screen:
     game: Game | None = None
     seed: int | None = None
     demo: bool = False
+    resume_level: int = 0  # where the next game starts: a house reached before
     _clock: float = field(default=0.0, repr=False)
 
     def prime(self, t: float) -> bool:
@@ -63,7 +65,32 @@ class Screen:
     def reset(self, t: float) -> None:
         """Back to the sleeping clock, for the host or for testing."""
         self.game = None
+        self.resume_level = 0
         self._enter(Stage.CLOCK, t)
+
+    def place(self) -> dict[str, Any]:
+        """What to remember across a power cut: the stage, and the house reached.
+        A game waiting to pick up again still counts as that game."""
+        if self.stage is Stage.GAME and self.game:
+            return {"stage": Stage.GAME.value, "house": self.game.level + 1}
+        if self.stage is Stage.PRIMED and self.resume_level:
+            return {"stage": Stage.GAME.value, "house": self.resume_level + 1}
+        return {"stage": self.stage.value}
+
+    def restore(self, place: dict[str, Any], t: float) -> None:
+        """Pick up from a remembered place. A game comes back with the wolf awake,
+        and the next press starts at the house they'd reached; the camera comes
+        back as the camera. Anything else, or nothing, is the clock."""
+        stage = place.get("stage")
+        house = place.get("house")
+        if stage == Stage.CAMERA.value:
+            self._enter(Stage.CAMERA, t)
+        elif stage in (Stage.PRIMED.value, Stage.GAME.value):
+            reached = isinstance(house, int) and 1 <= house <= len(LEVELS)
+            self.resume_level = (
+                house - 1 if stage == Stage.GAME.value and reached else 0
+            )
+            self._enter(Stage.PRIMED, t)
 
     def update(self, t: float) -> list[str]:
         """Run the game forward to time `t`, and return the sounds it made."""
@@ -96,6 +123,9 @@ class Screen:
 
     def _start_game(self, t: float) -> None:
         self.game = Game(rng=random.Random(self.seed), demo=self.demo)
+        if self.resume_level:
+            self.game.start_at(self.resume_level)
+            self.resume_level = 0
         self._clock = t
         self._enter(Stage.GAME, t)
 

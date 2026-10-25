@@ -36,7 +36,7 @@ from PyQt5.QtGui import (
 )
 from PyQt5.QtWidgets import QApplication, QWidget
 
-from wolf_run import camera_scene, clock, control
+from wolf_run import camera_scene, clock, control, memory
 from wolf_run.camera import CameraFeed
 from wolf_run.pixels import Canvas
 from wolf_run.stages import Screen, Stage
@@ -192,10 +192,15 @@ class ScreenWindow(QWidget):
         windowed: bool = True,
         commands: queue.Queue[str] | None = None,
         status: dict[str, Any] | None = None,
+        place_file: Path | None = None,
     ) -> None:
         super().__init__()
         self.setWindowTitle("Wolf Run")
         self.screen = screen or Screen()
+        self._place_file = place_file
+        if place_file is not None:
+            self.screen.restore(memory.load(place_file), 0.0)
+        self._placed = self.screen.place()
         self._now, self._seconds = now, seconds
         self._feed_factory, self._windowed = feed_factory, windowed
         self._commands = commands
@@ -218,6 +223,7 @@ class ScreenWindow(QWidget):
         self._take_commands(t)
         self.screen.update(t)
         control.publish(self.status, self.screen)
+        self._remember()
         self._manage_feed()
         frame = self.feed.latest() if self.feed else None
         if self.screen.stage is Stage.CAMERA and frame is not None:
@@ -242,6 +248,15 @@ class ScreenWindow(QWidget):
             except queue.Empty:
                 return
             control.apply_command(self.screen, name, t)
+
+    def _remember(self) -> None:
+        """Write the screen's place to disk whenever it changes."""
+        place = self.screen.place()
+        if place == self._placed:
+            return
+        self._placed = place
+        if self._place_file is not None:
+            memory.save(self._place_file, place)
 
     def _manage_feed(self) -> None:
         """Connect to the camera when the ending needs it; hang up after a reset."""
@@ -368,7 +383,8 @@ def run(
     status: dict[str, Any] | None = None,
 ) -> int:  # pragma: no cover
     """Show the screen until the host quits it, primed from the start if asked.
-    With a commands queue and a status dict, the network control drives it too."""
+    With a commands queue and a status dict, the network control drives it too.
+    It picks up where it was before a power cut (memory.py)."""
     app = ensure_app()
     warm_caches()
     window = ScreenWindow(
@@ -376,6 +392,7 @@ def run(
         windowed=windowed,
         commands=commands,
         status=status,
+        place_file=memory.path_from_env(),
     )
     if primed:
         window.screen.prime(window.elapsed())

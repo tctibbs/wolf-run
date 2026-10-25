@@ -1,0 +1,15 @@
+[Unit]
+Description=Put Wolf Run on the touchscreen at boot
+# The Pi's own screen app starts at boot too. This waits until it has, then starts
+# Wolf Run, which stops it (Conflicts= in wolf-run.service), so Wolf Run always ends
+# up with the screen and the other app's own settings stay as they are. To give the
+# screen back for good:
+#   systemctl --user disable --now wolf-run-boot && systemctl --user start swimp3-gui
+After=swimp3-gui.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemctl --user --no-block start wolf-run.service
+
+[Install]
+WantedBy=default.target

@@ -190,6 +190,11 @@ class Game:
         """The button came up: a short press is a short hop."""
         self.holding = False
 
+    def start_at(self, level: int) -> None:
+        """Start at a later house, skipping the intro: picking up after a power
+        cut."""
+        self._start_level(level)
+
     def skip_to_ending(self) -> None:
         """For the host: straight to the brick house."""
         if self.phase in (Phase.INTRO, Phase.RUN, Phase.CRASH):

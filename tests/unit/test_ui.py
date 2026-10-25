@@ -328,3 +328,30 @@ def test_warming_up_fills_the_caches_before_anyone_plays():
     assert tuple(clock.sprites.WOLF_FAT) in keys
     assert tuple(clock.sprites.WOLF_SLEEP_A) in keys
     assert ui._noise
+
+
+def test_the_window_picks_up_where_it_was_and_remembers_changes(tmp_path):
+    from wolf_run import memory
+
+    path = tmp_path / "place.json"
+    memory.save(path, {"stage": "game", "house": 2})
+    ticker = Ticker()
+    window = window_at(ticker, place_file=path)
+    assert window.screen.stage is Stage.PRIMED
+    assert window.screen.resume_level == 1
+
+    ticker.t = 101.0
+    window.keyPressEvent(key(Qt.Key_R, Qt.ControlModifier))
+    window.tick()
+
+    assert memory.load(path) == {"stage": "clock"}
+
+
+def test_a_window_without_a_place_file_remembers_nothing(tmp_path):
+    ticker = Ticker()
+    window = window_at(ticker)
+    window.keyPressEvent(key(Qt.Key_P, Qt.ControlModifier))
+    window.tick()
+
+    assert window.screen.stage is Stage.PRIMED
+    assert list(tmp_path.iterdir()) == []

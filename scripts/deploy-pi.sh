@@ -5,8 +5,8 @@
 # Everything lands in ~/wolf-run with its own venv. The venv borrows the system
 # PyQt5 from apt (building it on a Pi 3 isn't worth an afternoon). The camera's
 # .env is copied only if the Pi doesn't already have one, and never printed.
-# The service is installed but not started: it takes over the screen, so
-# starting it is your call.
+# The services are installed but not started or turned on at boot: Wolf Run takes
+# over the screen, so that's your call (see the README).
 #
 # Usage: scripts/deploy-pi.sh [user@host]    (default: WOLF_RUN_PI from .env)
 
@@ -40,9 +40,9 @@ ssh "$TARGET" 'set -e; cd ~/wolf-run
   fi
   .venv/bin/python -c "import PyQt5.QtWidgets, cv2, wolf_run; print(\"imports ok\")"'
 
-say "Installing the service (not starting it)"
+say "Installing the services (not starting them)"
 ssh "$TARGET" 'mkdir -p ~/.config/systemd/user
-  cp ~/wolf-run/deploy/wolf-run.service ~/.config/systemd/user/
+  cp ~/wolf-run/deploy/wolf-run.service ~/wolf-run/deploy/wolf-run-boot.service ~/.config/systemd/user/
   systemctl --user daemon-reload
   if systemctl --user is-active --quiet wolf-run; then
     systemctl --user restart wolf-run && echo "restarted the running screen"

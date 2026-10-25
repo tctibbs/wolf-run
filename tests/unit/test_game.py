@@ -246,3 +246,13 @@ def test_after_a_pair_the_next_obstacle_leaves_room_to_land():
             pair_end = game.obstacles[1].x + game.obstacles[1].width
             next_at = game.obstacles[0].x + game.gap
             assert next_at - pair_end >= game.current.gaps[0]
+
+
+def test_a_game_can_start_at_a_later_house():
+    from wolf_run.game import Game, Phase
+
+    game = Game()
+
+    game.start_at(2)
+
+    assert (game.level, game.phase) == (2, Phase.RUN)

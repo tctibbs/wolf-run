@@ -131,3 +131,56 @@ def test_reset_drops_the_game():
     assert (screen.stage, screen.game) == (Stage.CLOCK, None)
     assert screen.update(6.0) == []
     assert not screen.wants_camera
+
+
+def test_the_place_says_the_stage_and_the_house_reached():
+    screen = Screen(seed=1)
+    assert screen.place() == {"stage": "clock"}
+    screen.prime(1.0)
+    assert screen.place() == {"stage": "primed"}
+    screen.press(2.0)
+    assert screen.place() == {"stage": "game", "house": 1}
+    screen.skip_to_ending(3.0)
+    assert screen.place() == {"stage": "game", "house": 3}
+
+
+def test_a_game_comes_back_awake_and_starts_at_the_house_reached():
+    screen = Screen(seed=1)
+
+    screen.restore({"stage": "game", "house": 2}, 5.0)
+
+    assert (screen.stage, screen.since) == (Stage.PRIMED, 5.0)
+    assert screen.place() == {"stage": "game", "house": 2}  # a second cut keeps it
+    screen.press(6.0)
+    assert screen.stage is Stage.GAME
+    assert screen.game is not None and screen.game.level == 1
+    assert screen.resume_level == 0
+
+
+def test_the_other_places_come_back_as_they_were():
+    for place, stage in [
+        ({"stage": "primed"}, Stage.PRIMED),
+        ({"stage": "camera"}, Stage.CAMERA),
+        ({"stage": "clock"}, Stage.CLOCK),
+        ({}, Stage.CLOCK),
+        ({"stage": "dancing"}, Stage.CLOCK),
+    ]:
+        screen = Screen()
+        screen.restore(place, 0.0)
+        assert screen.stage is stage, place
+
+
+def test_an_odd_house_starts_at_the_first():
+    for house in (0, 9, "two", None):
+        screen = Screen(seed=1)
+        screen.restore({"stage": "game", "house": house}, 0.0)
+        assert (screen.stage, screen.resume_level) == (Stage.PRIMED, 0), house
+
+
+def test_reset_forgets_the_house_reached():
+    screen = Screen(seed=1)
+    screen.restore({"stage": "game", "house": 3}, 0.0)
+
+    screen.reset(1.0)
+
+    assert screen.place() == {"stage": "clock"}
