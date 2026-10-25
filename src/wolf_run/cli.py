@@ -9,8 +9,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from wolf_run import camera, config, control
-from wolf_run.stages import Screen, Stage
+from wolf_run import camera, config, control, memory
+from wolf_run.stages import Screen
 
 CAMERA_HINT = "Check CAMERA_HOST, the login, and that RTSP is on in the Reolink app."
 CONTROL_ENV = "WOLF_RUN_CONTROL_PORT"
@@ -130,7 +130,7 @@ def show_screen(windowed: bool, primed: bool = False, port: int = 0) -> int:
     if not port:
         return ui.run(windowed, primed)
     commands: queue.Queue[str] = queue.Queue()
-    status: dict[str, Any] = {"stage": (Stage.PRIMED if primed else Stage.CLOCK).value}
+    status = first_status(primed)
     try:
         server = control.start(port, commands, lambda: dict(status))
     except RuntimeError as error:
@@ -142,6 +142,18 @@ def show_screen(windowed: bool, primed: bool = False, port: int = 0) -> int:
     finally:
         server.shutdown()
         server.server_close()
+
+
+def first_status(primed: bool) -> dict[str, Any]:
+    """What /state says while the window is still starting: where it will pick up,
+    so a power cut never shows the clock for a moment first."""
+    screen = Screen()
+    path = memory.path_from_env()
+    if path is not None:
+        screen.restore(memory.load(path), 0.0)
+    if primed:
+        screen.prime(0.0)
+    return control.state_of(screen)
 
 
 def screenshot(

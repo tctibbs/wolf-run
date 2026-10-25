@@ -259,3 +259,21 @@ def test_a_busy_control_port_stops_before_the_screen_opens(mocker, capsys):
     assert cli.main(["screen", "--control", "8034"]) == 1
     assert "Port 8034 is busy." in capsys.readouterr().err
     run.assert_not_called()
+
+
+def test_the_control_answers_with_the_remembered_place_from_the_start(
+    tmp_path, monkeypatch
+):
+    from wolf_run import memory
+
+    path = tmp_path / "place.json"
+    monkeypatch.setenv("WOLF_RUN_STATE", str(path))
+    memory.save(path, {"stage": "camera"})
+    assert cli.first_status(False) == {"stage": "camera"}
+
+    memory.save(path, {"stage": "game", "house": 3})
+    assert cli.first_status(False) == {"stage": "primed"}
+
+    monkeypatch.setenv("WOLF_RUN_STATE", "off")
+    assert cli.first_status(True) == {"stage": "primed"}
+    assert cli.first_status(False) == {"stage": "clock"}

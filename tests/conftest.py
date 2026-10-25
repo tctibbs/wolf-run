@@ -31,3 +31,9 @@ class FakeCanvas:
 @pytest.fixture
 def canvas() -> FakeCanvas:
     return FakeCanvas()
+
+
+@pytest.fixture(autouse=True)
+def no_remembered_place(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Tests start fresh: none of them reads or writes the real remembered place."""
+    monkeypatch.setenv("WOLF_RUN_STATE", "off")
