@@ -5,7 +5,7 @@ import pytest
 from PyQt5.QtCore import QEvent, QPointF, QRect, Qt
 from PyQt5.QtGui import QColor, QImage, QKeyEvent, QMouseEvent
 
-from wolf_run import camera_scene, clock, control, ui
+from wolf_run import camera_scene, card, clock, control, ui
 from wolf_run.palette import NIGHT
 from wolf_run.stages import Stage
 
@@ -360,7 +360,7 @@ def test_a_window_without_a_place_file_remembers_nothing(tmp_path):
 def test_the_card_outline_lands_on_the_camera_picture():
     sightings = control.Sightings(lambda: 10.0)
     window = window_at(
-        Ticker(), card_outline=(0.5, 0.25, 0.25, 0.5), sightings=sightings
+        Ticker(), card_spot=card.CardSpot((0.5, 0.25, 0.25, 0.5)), sightings=sightings
     )
     window.resize(ui.PANEL_W, ui.PANEL_H)
 
@@ -377,7 +377,9 @@ def test_the_card_outline_lands_on_the_camera_picture():
 def test_the_camera_view_draws_the_card_outline():
     feed = FakeFeed(np.zeros((720, 1280, 3), dtype=np.uint8))
     window = window_at(
-        Ticker(), feed_factory=lambda: feed, card_outline=(0.5, 0.25, 0.25, 0.5)
+        Ticker(),
+        feed_factory=lambda: feed,
+        card_spot=card.CardSpot((0.5, 0.25, 0.25, 0.5)),
     )
     window.resize(ui.PANEL_W, ui.PANEL_H)
     window.show()
@@ -388,12 +390,3 @@ def test_the_camera_view_draws_the_card_outline():
     assert window._overlay is not None
     # The outline's top-left dash, at canvas (128, 39), drawn into the overlay.
     assert window._overlay.pixelColor(128, 39) == QColor(camera_scene.OSD)
-
-
-def test_a_bad_card_outline_is_reported_and_skipped(tmp_path, capsys):
-    env = tmp_path / ".env"
-    env.write_text("CARD_OUTLINE=0.9,0.9,0.5,0.5\n")
-    assert ui.card_outline_from_env(env) is None
-    assert "No card outline" in capsys.readouterr().err
-    env.write_text("CARD_OUTLINE=0.4,0.25,0.15,0.4\n")
-    assert ui.card_outline_from_env(env) == (0.4, 0.25, 0.15, 0.4)

@@ -5,6 +5,8 @@
     POST /card                   whether the camera can read the card, and where:
                                  {"found": true, "corners": [[x, y] x4],
                                   "frame": [width, height]}, or {"found": false}
+    POST /card-spot              put the card outline around the card, where the
+                                 camera sees it now (or {"box": [l, t, w, h]})
 
 Something watching the camera sends /card every second or so while the card reads;
 the camera view outlines it until the reports stop for STALE_SECONDS.
@@ -25,10 +27,14 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 from urllib.parse import urlsplit
 
+from wolf_run import card
 from wolf_run.stages import Screen, Stage
 
 COMMANDS = ("prime", "skip", "reset")
-HELP = "Try GET /state, or POST /prime, /skip, /reset, or /card."
+HELP = "Try GET /state, or POST /prime, /skip, /reset, /card, or /card-spot."
+NO_CARD = (
+    "The camera can't see the card. Hold it up where guests should, then try again."
+)
 ALL_INTERFACES = "0.0.0.0"
 MAX_BODY = 64 * 1024  # bytes; commands carry no body, so anything sent is ignored
 STALE_SECONDS = 3.0  # the card counts as seen this long after the last report
@@ -127,20 +133,27 @@ def start(
     status: Status,
     host: str = ALL_INTERFACES,
     sightings: Sightings | None = None,
+    spot: card.CardSpot | None = None,
 ) -> ThreadingHTTPServer:
     """Serve the control on a background thread. Port 0 picks a free one. With
-    sightings, it also takes /card reports."""
+    sightings, it also takes /card reports, and with a spot, /card-spot."""
 
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:
             if self._route() == "state":
-                self._reply(200, status())
+                state = status()
+                if sightings is not None:
+                    state["card"] = "reading" if sightings.seen() else "waiting"
+                self._reply(200, state)
             else:
                 self._reply(404, {"error": HELP})
 
         def do_POST(self) -> None:
             body = self._body()
             name = self._route()
+            if name == "card-spot" and spot is not None:
+                self._set_spot(body)
+                return
             if name == "card" and sightings is not None:
                 try:
                     sightings.report(parse_card(body))
@@ -154,6 +167,26 @@ def start(
                 return
             commands.put(name)
             self._reply(200, {"ok": name})
+
+        def _set_spot(self, body: bytes) -> None:
+            """Move the outline: to the box sent, or around the card seen now."""
+            try:
+                asked = json.loads(body) if body.strip() else {}
+                if not isinstance(asked, dict):
+                    raise ValueError('Send {} or {"box": [left, top, width, height]}.')
+                if "box" in asked:
+                    box = card.checked(asked["box"])
+                else:
+                    seen = sightings.seen() if sightings is not None else None
+                    if not seen:
+                        self._reply(409, {"error": NO_CARD})
+                        return
+                    box = card.box_around(seen)
+            except (ValueError, TypeError) as error:
+                self._reply(400, {"error": str(error)})
+                return
+            spot.set(box)  # type: ignore[union-attr]
+            self._reply(200, {"ok": "card-spot", "box": [round(v, 4) for v in box]})
 
         def _route(self) -> str:
             return urlsplit(self.path).path.strip("/")

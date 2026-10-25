@@ -172,9 +172,11 @@ def local_control(mocker, monkeypatch):
     real_start = control.start
     servers = []
 
-    def start(port, commands, status, sightings=None):
+    def start(port, commands, status, sightings=None, spot=None):
         servers.append(
-            real_start(0, commands, status, host="127.0.0.1", sightings=sightings)
+            real_start(
+                0, commands, status, host="127.0.0.1", sightings=sightings, spot=spot
+            )
         )
         return servers[-1]
 
@@ -191,7 +193,7 @@ def test_control_listens_while_the_screen_runs_and_stops_after(
 
     seen = {}
 
-    def run(windowed, primed, commands, status, sightings=None):
+    def run(windowed, primed, commands, status, sightings=None, card_spot=None):
         port = local_control[0].server_port
         with urllib.request.urlopen(f"http://127.0.0.1:{port}/state") as reply:
             seen["state"] = json.loads(reply.read())
@@ -206,7 +208,10 @@ def test_control_listens_while_the_screen_runs_and_stops_after(
     assert cli.main(["screen", "--primed", "--control", "8034"]) == 0
 
     server = local_control[0]
-    assert seen == {"state": {"stage": "primed"}, "command": "skip"}
+    assert seen == {
+        "state": {"stage": "primed", "card": "waiting"},
+        "command": "skip",
+    }
     assert f"http://192.168.1.23:{server.server_port}" in capsys.readouterr().out
     assert server.socket.fileno() == -1  # closed once the screen quits
 

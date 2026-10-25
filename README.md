@@ -75,10 +75,17 @@ prints its address when it starts. Then:
   card's four corners in that frame, clockwise from its top left), or
   `{"found": false}`. Send it every second or so while the card reads.
 
-With `CARD_OUTLINE` in `.env`, the camera view shows a dashed outline where guests
-should hold the card, with HOLD HIS CARD HERE above it. While `/card` says it reads,
-the outline turns orange, says LIGHT UP THE ROOM, and traces the card where the
-camera sees it. Three seconds after the last report it goes back to waiting.
+- `POST /card-spot` moves the card outline to where the card is right now: hold it
+  where guests should, then send this. Or send `{"box": [left, top, width, height]}`
+  (fractions of the camera picture). The spot is remembered next to the screen's
+  place, so a restart keeps it. While `/card` is in use, `GET /state` also says
+  `"card": "reading"` or `"waiting"`.
+
+With `CARD_OUTLINE` in `.env` (or a spot set with `/card-spot`), the camera view
+shows a dashed outline where guests should hold the card, with HOLD HIS CARD HERE
+above it. While `/card` says it reads, the outline turns orange, says LIGHT UP THE
+ROOM, and traces the card where the camera sees it. Three seconds after the last
+report it goes back to waiting.
 
 ```bash
 curl -X POST http://raspberrypi.local:8034/prime

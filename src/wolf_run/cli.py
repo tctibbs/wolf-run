@@ -9,7 +9,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from wolf_run import camera, config, control, memory
+from wolf_run import camera, card, config, control, memory
 from wolf_run.stages import Screen
 
 CAMERA_HINT = "Check CAMERA_HOST, the login, and that RTSP is on in the Reolink app."
@@ -132,9 +132,10 @@ def show_screen(windowed: bool, primed: bool = False, port: int = 0) -> int:
     commands: queue.Queue[str] = queue.Queue()
     status = first_status(primed)
     sightings = control.Sightings()
+    spot = card.spot_from_env()
     try:
         server = control.start(
-            port, commands, lambda: dict(status), sightings=sightings
+            port, commands, lambda: dict(status), sightings=sightings, spot=spot
         )
     except RuntimeError as error:
         print(error, file=sys.stderr)
@@ -142,7 +143,12 @@ def show_screen(windowed: bool, primed: bool = False, port: int = 0) -> int:
     print(f"Taking commands at http://{control.lan_address()}:{server.server_port}")
     try:
         return ui.run(
-            windowed, primed, commands=commands, status=status, sightings=sightings
+            windowed,
+            primed,
+            commands=commands,
+            status=status,
+            sightings=sightings,
+            card_spot=spot,
         )
     finally:
         server.shutdown()

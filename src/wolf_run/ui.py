@@ -36,7 +36,7 @@ from PyQt5.QtGui import (
 )
 from PyQt5.QtWidgets import QApplication, QWidget
 
-from wolf_run import camera_scene, clock, control, memory
+from wolf_run import camera_scene, card, clock, control, memory
 from wolf_run.camera import CameraFeed
 from wolf_run.pixels import Canvas
 from wolf_run.stages import Screen, Stage
@@ -193,11 +193,11 @@ class ScreenWindow(QWidget):
         commands: queue.Queue[str] | None = None,
         status: dict[str, Any] | None = None,
         place_file: Path | None = None,
-        card_outline: camera_scene.Box | None = None,
+        card_spot: card.CardSpot | None = None,
         sightings: control.Sightings | None = None,
     ) -> None:
         super().__init__()
-        self._card_outline, self._sightings = card_outline, sightings
+        self._card_spot, self._sightings = card_spot, sightings
         self.setWindowTitle("Wolf Run")
         self.screen = screen or Screen()
         self._place_file = place_file
@@ -244,12 +244,13 @@ class ScreenWindow(QWidget):
 
     def card_view(self, picture_w: int, picture_h: int) -> camera_scene.CardView | None:
         """Where to hold the card over this camera picture, and where it's seen."""
-        if self._card_outline is None:
+        outline = self._card_spot.box if self._card_spot is not None else None
+        if outline is None:
             return None
         picture = camera_scene.picture_box(
             self.width(), self.height(), picture_w, picture_h
         )
-        left, top, width, height = self._card_outline
+        left, top, width, height = outline
         x, y = camera_scene.on_picture(picture, (left, top))
         right, bottom = camera_scene.on_picture(picture, (left + width, top + height))
         seen = self._sightings.seen() if self._sightings is not None else None
@@ -398,23 +399,13 @@ def camera_feed_factory(env_path: Path = Path(".env")) -> FeedFactory:
     return lambda: CameraFeed(settings.rtsp_url())
 
 
-def card_outline_from_env(env_path: Path = Path(".env")) -> camera_scene.Box | None:
-    """Where guests hold the card up (CARD_OUTLINE in .env), if it's set and sane."""
-    from wolf_run import config
-
-    try:
-        return config.card_outline(config.read_env(env_path))
-    except config.ConfigError as error:
-        print(f"No card outline: {error}", file=sys.stderr)
-        return None
-
-
 def run(
     windowed: bool,
     primed: bool = False,
     commands: queue.Queue[str] | None = None,
     status: dict[str, Any] | None = None,
     sightings: control.Sightings | None = None,
+    card_spot: card.CardSpot | None = None,
 ) -> int:  # pragma: no cover
     """Show the screen until the host quits it, primed from the start if asked.
     With a commands queue and a status dict, the network control drives it too.
@@ -427,7 +418,7 @@ def run(
         commands=commands,
         status=status,
         place_file=memory.path_from_env(),
-        card_outline=card_outline_from_env(),
+        card_spot=card_spot or card.spot_from_env(),
         sightings=sightings,
     )
     if primed:

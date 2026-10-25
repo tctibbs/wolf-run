@@ -8,7 +8,7 @@ from datetime import datetime
 
 import pytest
 
-from wolf_run import control, ui
+from wolf_run import card, control, ui
 from wolf_run.stages import Screen, Stage
 
 HALLOWEEN_EVENING = datetime(2026, 10, 31, 21, 47)
@@ -364,3 +364,48 @@ def test_no_sightings_means_no_card_route(served):
     code, _ = call(f"{url}/card", "POST", json.dumps(CARD).encode())
     assert code == 404
     assert commands.empty()
+
+
+@pytest.fixture
+def spotted():
+    """The server with card sightings and a card spot."""
+    clock = Clock()
+    sightings = control.Sightings(clock)
+    spot = card.CardSpot((0.4, 0.25, 0.15, 0.4))
+    server = control.start(
+        0, queue.Queue(), dict, host="127.0.0.1", sightings=sightings, spot=spot
+    )
+    yield f"http://127.0.0.1:{server.server_port}", sightings, spot
+    server.shutdown()
+    server.server_close()
+
+
+def test_the_card_spot_moves_to_where_the_card_is(spotted):
+    url, sightings, spot = spotted
+    code, answer = call(f"{url}/card-spot", "POST", b"")
+    assert code == 409 and "can't see the card" in answer["error"]
+    assert spot.box == (0.4, 0.25, 0.15, 0.4)
+
+    sightings.report(((0.5, 0.25), (0.6, 0.25), (0.6, 0.55), (0.5, 0.55)))
+    code, answer = call(f"{url}/card-spot", "POST", b"")
+
+    assert code == 200 and answer["ok"] == "card-spot"
+    assert spot.box == card.box_around(sightings.seen())
+    assert answer["box"] == [round(v, 4) for v in spot.box]
+
+
+def test_the_card_spot_can_be_set_outright(spotted):
+    url, _, spot = spotted
+    code, _ = call(f"{url}/card-spot", "POST", b'{"box": [0.1, 0.2, 0.3, 0.4]}')
+    assert code == 200 and spot.box == (0.1, 0.2, 0.3, 0.4)
+    for bad in (b'{"box": [2, 2, 2, 2]}', b"[1]", b"nope"):
+        code, _ = call(f"{url}/card-spot", "POST", bad)
+        assert code == 400, bad
+    assert spot.box == (0.1, 0.2, 0.3, 0.4)
+
+
+def test_state_says_whether_the_card_reads(spotted):
+    url, sightings, _ = spotted
+    assert call(f"{url}/state")[1]["card"] == "waiting"
+    sightings.report(((0.5, 0.25), (0.6, 0.25), (0.6, 0.55), (0.5, 0.55)))
+    assert call(f"{url}/state")[1]["card"] == "reading"
