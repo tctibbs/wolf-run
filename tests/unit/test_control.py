@@ -284,3 +284,83 @@ def test_a_post_reaches_the_screen_and_shows_up_in_state(app):
     finally:
         server.shutdown()
         server.server_close()
+
+
+class Clock:
+    def __init__(self) -> None:
+        self.t = 50.0
+
+    def __call__(self) -> float:
+        return self.t
+
+
+@pytest.fixture
+def sighted():
+    """The server with card sightings, on a clock the test moves."""
+    clock = Clock()
+    sightings = control.Sightings(clock)
+    server = control.start(
+        0, queue.Queue(), dict, host="127.0.0.1", sightings=sightings
+    )
+    yield f"http://127.0.0.1:{server.server_port}", sightings, clock
+    server.shutdown()
+    server.server_close()
+
+
+CARD = {
+    "found": True,
+    "corners": [[640, 180], [768, 180], [768, 372], [640, 372]],
+    "frame": [1280, 720],
+}
+
+
+def test_a_card_report_says_where_the_card_is(sighted):
+    url, sightings, clock = sighted
+    assert sightings.seen() is None
+
+    code, body = call(f"{url}/card", "POST", json.dumps(CARD).encode())
+
+    assert (code, body) == (200, {"ok": "card"})
+    seen = [tuple(round(v, 4) for v in corner) for corner in sightings.seen()]
+    assert seen == [(0.5, 0.25), (0.6, 0.25), (0.6, 0.5167), (0.5, 0.5167)]
+    clock.t += control.STALE_SECONDS + 0.1
+    assert sightings.seen() is None  # no word for a while: it's gone
+
+
+def test_a_lost_card_report_clears_it(sighted):
+    url, sightings, _ = sighted
+    call(f"{url}/card", "POST", json.dumps(CARD).encode())
+
+    call(f"{url}/card", "POST", b'{"found": false}')
+
+    assert sightings.seen() is None
+
+
+@pytest.mark.parametrize(
+    ("body", "says"),
+    [
+        (b"not json", "Send JSON"),
+        (b"[]", "whether the card was found"),
+        (b'{"found": "yes"}', "whether the card was found"),
+        (b'{"found": true, "corners": [[1, 2]] , "frame": [10, 10]}', "four corners"),
+        (
+            b'{"found": true, "corners": [[1, 2], [1, 2], [1, 2], [1]], '
+            b'"frame": [10, 10]}',
+            "[x, y]",
+        ),
+        (b'{"found": true, "corners": [], "frame": [0, 10]}', "frame's size"),
+        (b'{"found": true, "corners": [], "frame": [true, 10]}', "frame's size"),
+    ],
+)
+def test_a_bad_card_report_says_why(sighted, body, says):
+    url, sightings, _ = sighted
+    code, answer = call(f"{url}/card", "POST", body)
+    assert code == 400 and says in answer["error"]
+    assert sightings.seen() is None
+
+
+def test_no_sightings_means_no_card_route(served):
+    url, commands, _ = served
+    code, _ = call(f"{url}/card", "POST", json.dumps(CARD).encode())
+    assert code == 404
+    assert commands.empty()

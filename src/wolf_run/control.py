@@ -2,6 +2,12 @@
 
     GET  /state                  which stage it's on, and the house while playing
     POST /prime /skip /reset     the same as the host's Ctrl+P, Ctrl+E, and Ctrl+R
+    POST /card                   whether the camera can read the card, and where:
+                                 {"found": true, "corners": [[x, y] x4],
+                                  "frame": [width, height]}, or {"found": false}
+
+Something watching the camera sends /card every second or so while the card reads;
+the camera view outlines it until the reports stop for STALE_SECONDS.
 
 The server runs on its own thread and never touches Qt. Commands go into a queue
 that the window drains on the main thread, and the window keeps a status dict up
@@ -13,6 +19,7 @@ import json
 import queue
 import socket
 import threading
+import time
 from collections.abc import Callable
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
@@ -21,9 +28,65 @@ from urllib.parse import urlsplit
 from wolf_run.stages import Screen, Stage
 
 COMMANDS = ("prime", "skip", "reset")
-HELP = "Try GET /state, or POST /prime, /skip, or /reset."
+HELP = "Try GET /state, or POST /prime, /skip, /reset, or /card."
 ALL_INTERFACES = "0.0.0.0"
 MAX_BODY = 64 * 1024  # bytes; commands carry no body, so anything sent is ignored
+STALE_SECONDS = 3.0  # the card counts as seen this long after the last report
+
+Corners = tuple[tuple[float, float], ...]
+
+
+class Sightings:
+    """The latest word on the card, shared between the server and the window."""
+
+    def __init__(self, clock: Callable[[], float] = time.monotonic) -> None:
+        self._clock = clock
+        self._lock = threading.Lock()
+        self._corners: Corners | None = None
+        self._at = -STALE_SECONDS
+
+    def report(self, corners: Corners | None) -> None:
+        """Where the card is, as fractions of the camera picture, or None if gone."""
+        with self._lock:
+            self._corners, self._at = corners, self._clock()
+
+    def seen(self) -> Corners | None:
+        """The card's corners, if a recent report says it reads."""
+        with self._lock:
+            if self._clock() - self._at > STALE_SECONDS:
+                return None
+            return self._corners
+
+
+def parse_card(body: bytes) -> Corners | None:
+    """A /card report: its four corners as fractions of the frame, or None when the
+    card isn't there. Raises ValueError, saying what's wrong."""
+    try:
+        report = json.loads(body or b"{}")
+    except ValueError:
+        raise ValueError('Send JSON, like {"found": false}.') from None
+    if not isinstance(report, dict) or not isinstance(report.get("found"), bool):
+        raise ValueError('Say whether the card was found: {"found": true or false}.')
+    if not report["found"]:
+        return None
+    corners, frame = report.get("corners"), report.get("frame")
+    if not _numbers(frame, 2) or min(frame) <= 0:
+        raise ValueError('Give the frame\'s size: "frame": [width, height].')
+    if not isinstance(corners, list) or len(corners) != 4:
+        raise ValueError('Give the card\'s four corners: "corners": [[x, y], ...].')
+    if not all(_numbers(corner, 2) for corner in corners):
+        raise ValueError("Each corner is [x, y].")
+    width, height = frame
+    return tuple((x / width, y / height) for x, y in corners)
+
+
+def _numbers(value: Any, count: int) -> bool:
+    return (
+        isinstance(value, list)
+        and len(value) == count
+        and all(isinstance(v, int | float) and not isinstance(v, bool) for v in value)
+    )
+
 
 Status = Callable[[], dict[str, Any]]
 
@@ -63,8 +126,10 @@ def start(
     commands: queue.Queue[str],
     status: Status,
     host: str = ALL_INTERFACES,
+    sightings: Sightings | None = None,
 ) -> ThreadingHTTPServer:
-    """Serve the control on a background thread. Port 0 picks a free one."""
+    """Serve the control on a background thread. Port 0 picks a free one. With
+    sightings, it also takes /card reports."""
 
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:
@@ -74,8 +139,16 @@ def start(
                 self._reply(404, {"error": HELP})
 
         def do_POST(self) -> None:
-            self._skip_body()
+            body = self._body()
             name = self._route()
+            if name == "card" and sightings is not None:
+                try:
+                    sightings.report(parse_card(body))
+                except ValueError as error:
+                    self._reply(400, {"error": str(error)})
+                    return
+                self._reply(200, {"ok": name})
+                return
             if name not in COMMANDS:
                 self._reply(404, {"error": HELP})
                 return
@@ -85,13 +158,12 @@ def start(
         def _route(self) -> str:
             return urlsplit(self.path).path.strip("/")
 
-        def _skip_body(self) -> None:
+        def _body(self) -> bytes:
             try:
                 length = int(self.headers.get("Content-Length") or 0)
             except ValueError:
                 length = 0
-            if length > 0:
-                self.rfile.read(min(length, MAX_BODY))
+            return self.rfile.read(min(length, MAX_BODY)) if length > 0 else b""
 
         def _reply(self, code: int, body: dict[str, Any]) -> None:
             data = json.dumps(body).encode()

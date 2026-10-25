@@ -70,6 +70,15 @@ prints its address when it starts. Then:
 - `POST /prime` wakes the wolf, `POST /skip` skips to the brick house, and
   `POST /reset` goes back to the clock. They do the same as Ctrl+P, Ctrl+E, and
   Ctrl+R.
+- `POST /card` is for something watching the camera that can read a card held up
+  to it: `{"found": true, "corners": [[x, y], ...], "frame": [width, height]}` (the
+  card's four corners in that frame, clockwise from its top left), or
+  `{"found": false}`. Send it every second or so while the card reads.
+
+With `CARD_OUTLINE` in `.env`, the camera view shows a dashed outline where guests
+should hold the card, with HOLD HIS CARD HERE above it. While `/card` says it reads,
+the outline turns orange, says LIGHT UP THE ROOM, and traces the card where the
+camera sees it. Three seconds after the last report it goes back to waiting.
 
 ```bash
 curl -X POST http://raspberrypi.local:8034/prime

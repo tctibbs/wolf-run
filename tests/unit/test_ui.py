@@ -5,7 +5,7 @@ import pytest
 from PyQt5.QtCore import QEvent, QPointF, QRect, Qt
 from PyQt5.QtGui import QColor, QImage, QKeyEvent, QMouseEvent
 
-from wolf_run import clock, ui
+from wolf_run import camera_scene, clock, control, ui
 from wolf_run.palette import NIGHT
 from wolf_run.stages import Stage
 
@@ -355,3 +355,45 @@ def test_a_window_without_a_place_file_remembers_nothing(tmp_path):
 
     assert window.screen.stage is Stage.PRIMED
     assert list(tmp_path.iterdir()) == []
+
+
+def test_the_card_outline_lands_on_the_camera_picture():
+    sightings = control.Sightings(lambda: 10.0)
+    window = window_at(
+        Ticker(), card_outline=(0.5, 0.25, 0.25, 0.5), sightings=sightings
+    )
+    window.resize(ui.PANEL_W, ui.PANEL_H)
+
+    view = window.card_view(1280, 720)
+
+    assert view is not None and view.seen is None
+    assert view.outline == (128.0, 39.0, 64.0, 72.0)
+    sightings.report(((0.5, 0.25), (0.75, 0.25), (0.75, 0.75), (0.5, 0.75)))
+    view = window.card_view(1280, 720)
+    assert view.seen == ((128.0, 39.0), (192.0, 39.0), (192.0, 111.0), (128.0, 111.0))
+    assert window_at(Ticker()).card_view(1280, 720) is None
+
+
+def test_the_camera_view_draws_the_card_outline():
+    feed = FakeFeed(np.zeros((720, 1280, 3), dtype=np.uint8))
+    window = window_at(
+        Ticker(), feed_factory=lambda: feed, card_outline=(0.5, 0.25, 0.25, 0.5)
+    )
+    window.resize(ui.PANEL_W, ui.PANEL_H)
+    window.show()
+    window.screen.stage = Stage.CAMERA
+
+    window.tick()
+
+    assert window._overlay is not None
+    # The outline's top-left dash, at canvas (128, 39), drawn into the overlay.
+    assert window._overlay.pixelColor(128, 39) == QColor(camera_scene.OSD)
+
+
+def test_a_bad_card_outline_is_reported_and_skipped(tmp_path, capsys):
+    env = tmp_path / ".env"
+    env.write_text("CARD_OUTLINE=0.9,0.9,0.5,0.5\n")
+    assert ui.card_outline_from_env(env) is None
+    assert "No card outline" in capsys.readouterr().err
+    env.write_text("CARD_OUTLINE=0.4,0.25,0.15,0.4\n")
+    assert ui.card_outline_from_env(env) == (0.4, 0.25, 0.15, 0.4)

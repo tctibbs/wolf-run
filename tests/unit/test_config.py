@@ -90,3 +90,24 @@ def test_read_env_without_a_file_uses_the_environment(tmp_path, monkeypatch):
     values = read_env(tmp_path / "missing.env")
 
     assert values["CAMERA_USER"] == "viewer"
+
+
+def test_the_card_outline_is_fractions_of_the_picture():
+    from wolf_run.config import card_outline
+
+    assert card_outline({}) is None
+    assert card_outline({"CARD_OUTLINE": "0.4, 0.25, 0.15, 0.4"}) == (
+        0.4,
+        0.25,
+        0.15,
+        0.4,
+    )
+    for bad, says in (
+        ("0.4,0.25,0.15", "left,top,width,height"),
+        ("a,b,c,d", "left,top,width,height"),
+        ("0.9,0.25,0.15,0.4", "fit"),
+        ("0.4,0.25,0,0.4", "fit"),
+        ("-0.1,0.25,0.15,0.4", "fit"),
+    ):
+        with pytest.raises(ConfigError, match=says):
+            card_outline({"CARD_OUTLINE": bad})

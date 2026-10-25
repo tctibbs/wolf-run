@@ -68,6 +68,34 @@ def camera_settings(env: Mapping[str, str]) -> CameraSettings:
     )
 
 
+def card_outline(env: Mapping[str, str]) -> tuple[float, float, float, float] | None:
+    """CARD_OUTLINE: where guests hold the card up, as left,top,width,height in
+    fractions of the camera picture (0.4,0.25,0.15,0.4). None when it isn't set."""
+    raw = env.get("CARD_OUTLINE")
+    if not raw:
+        return None
+    try:
+        left, top, width, height = (float(part) for part in raw.split(","))
+    except ValueError:
+        raise ConfigError(
+            f"CARD_OUTLINE should be left,top,width,height, like 0.4,0.25,0.15,0.4, "
+            f"not {raw!r}."
+        ) from None
+    if not (
+        left >= 0
+        and top >= 0
+        and width > 0
+        and height > 0
+        and left + width <= 1
+        and top + height <= 1
+    ):
+        raise ConfigError(
+            "CARD_OUTLINE is fractions of the camera picture: the box has to fit "
+            f"inside it, not {raw!r}."
+        )
+    return left, top, width, height
+
+
 def _port(env: Mapping[str, str], key: str, default: int) -> int:
     raw = env.get(key)
     if not raw:

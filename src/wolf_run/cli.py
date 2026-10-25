@@ -131,14 +131,19 @@ def show_screen(windowed: bool, primed: bool = False, port: int = 0) -> int:
         return ui.run(windowed, primed)
     commands: queue.Queue[str] = queue.Queue()
     status = first_status(primed)
+    sightings = control.Sightings()
     try:
-        server = control.start(port, commands, lambda: dict(status))
+        server = control.start(
+            port, commands, lambda: dict(status), sightings=sightings
+        )
     except RuntimeError as error:
         print(error, file=sys.stderr)
         return 1
     print(f"Taking commands at http://{control.lan_address()}:{server.server_port}")
     try:
-        return ui.run(windowed, primed, commands=commands, status=status)
+        return ui.run(
+            windowed, primed, commands=commands, status=status, sightings=sightings
+        )
     finally:
         server.shutdown()
         server.server_close()

@@ -172,8 +172,10 @@ def local_control(mocker, monkeypatch):
     real_start = control.start
     servers = []
 
-    def start(port, commands, status):
-        servers.append(real_start(0, commands, status, host="127.0.0.1"))
+    def start(port, commands, status, sightings=None):
+        servers.append(
+            real_start(0, commands, status, host="127.0.0.1", sightings=sightings)
+        )
         return servers[-1]
 
     mocker.patch("wolf_run.control.start", side_effect=start)
@@ -189,7 +191,7 @@ def test_control_listens_while_the_screen_runs_and_stops_after(
 
     seen = {}
 
-    def run(windowed, primed, commands, status):
+    def run(windowed, primed, commands, status, sightings=None):
         port = local_control[0].server_port
         with urllib.request.urlopen(f"http://127.0.0.1:{port}/state") as reply:
             seen["state"] = json.loads(reply.read())
