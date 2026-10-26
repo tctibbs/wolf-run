@@ -1,4 +1,4 @@
-# Private settings: camera address and login, webhooks
+# Private settings: camera address and login
 .env
 .env.*
 !.env.example

@@ -40,7 +40,7 @@ NO_CARD = (
     "The camera can't see the card. Hold it up where guests should, then try again."
 )
 ALL_INTERFACES = "0.0.0.0"
-MAX_BODY = 64 * 1024  # bytes; commands carry no body, so anything sent is ignored
+MAX_BODY = 64 * 1024  # bytes; only /card and /card-spot read a body
 STALE_SECONDS = 3.0  # the card counts as seen this long after the last report
 
 Corners = tuple[tuple[float, float], ...]
