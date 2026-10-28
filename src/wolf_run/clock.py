@@ -2,7 +2,8 @@
 
 When the screen is primed, the wolf wakes up, gets to his feet, and a prompt
 blinks under the time. The clock shares the game's ground line, so the game can
-start from this exact picture.
+start from this exact picture. While the wolf sleeps, each pig's house can rise from
+its plot as the pig comes home (pigs.py).
 """
 
 import math
@@ -12,6 +13,7 @@ from datetime import datetime
 
 from wolf_run import sprites
 from wolf_run.palette import NIGHT, Palette
+from wolf_run.pigs import Building
 from wolf_run.pixels import Canvas, Grid, disc, paint, text, text_runs, text_width
 
 W, H = 256, 150
@@ -52,6 +54,7 @@ HOUSES = [
     (sprites.STICK_HOUSE, 104),
     (sprites.BRICK_HOUSE, 152),
 ]
+PLOT_STAKE = 4  # how tall the stakes of an empty plot stand
 TOMBSTONE_X = 232
 PUMPKIN_X = 196
 
@@ -168,11 +171,13 @@ def draw_clock(
     t: float,
     primed_at: float | None = None,
     palette: Palette = NIGHT,
+    building: Building | None = None,
 ) -> None:
     """Draw one frame: `now` is the wall time, `t` the seconds of animation so far.
 
     `primed_at` is the animation time the screen was primed, or None while the
-    wolf is still asleep.
+    wolf is still asleep. `building` says how much of each house stands; without
+    it they all do.
     """
     canvas.fill(0, 0, W, H, palette.bg)
     draw_sky(canvas, t, palette)
@@ -185,7 +190,7 @@ def draw_clock(
         runs = [(piece, getattr(palette, color)) for piece, color in PROMPT_RUNS]
         text_runs(canvas, runs, x, DATE_Y - 2, PROMPT_SCALE)
     draw_ground(canvas, palette)
-    draw_scenery(canvas, t, palette)
+    draw_scenery(canvas, t, palette, building=building)
     _wolf(canvas, t, primed_at, palette)
 
 
@@ -267,14 +272,29 @@ def draw_ground(canvas: Canvas, palette: Palette = NIGHT, scroll: float = 0) -> 
 
 
 def draw_scenery(
-    canvas: Canvas, t: float, palette: Palette = NIGHT, scroll: float = 0
+    canvas: Canvas,
+    t: float,
+    palette: Palette = NIGHT,
+    scroll: float = 0,
+    building: Building | None = None,
 ) -> None:
     """The pigs' houses, the pumpkin, and the tombstone. They scroll away for good
-    once the run starts, and stop being drawn once they're off screen."""
+    once the run starts, and stop being drawn once they're off screen. With
+    `building`, each house shows only as much as stands: the bottom rows of it, as
+    if rising from the ground, and the stakes of its plot until it's whole."""
     dx = -round(scroll)
     flicker = palette.glow if int(t * 7) % 5 else palette.dim
+    for i, (grid, x) in enumerate(HOUSES):
+        if x + dx + len(grid[0]) <= 0:
+            continue
+        stands = 1.0 if building is None else building.height(i, t)
+        rows = round(len(grid) * stands)
+        if rows < len(grid):
+            _plot(canvas, x + dx, len(grid[0]), palette)
+        if rows:
+            top = GROUND_Y - rows
+            paint(canvas, grid[-rows:], x + dx, top, palette.ink, palette.glow)
     pieces = [
-        *((grid, x, palette.glow) for grid, x in HOUSES),
         (sprites.TOMBSTONE, TOMBSTONE_X, palette.bg),
         (sprites.PUMPKIN, PUMPKIN_X, flicker),
     ]
@@ -282,6 +302,14 @@ def draw_scenery(
         if x + dx + len(grid[0]) <= 0:
             continue
         paint(canvas, grid, x + dx, GROUND_Y - len(grid), palette.ink, holes)
+
+
+def _plot(canvas: Canvas, x: int, width: int, palette: Palette) -> None:
+    """Where a house will stand: a stake at each corner and a dashed string."""
+    for stake in (x, x + width - 1):
+        canvas.fill(stake, GROUND_Y - PLOT_STAKE, 1, PLOT_STAKE, palette.dim)
+    for dash in range(x + 2, x + width - 2, 3):
+        canvas.fill(dash, GROUND_Y - PLOT_STAKE + 1, 2, 1, palette.dim)
 
 
 def _wolf(canvas: Canvas, t: float, primed_at: float | None, palette: Palette) -> None:

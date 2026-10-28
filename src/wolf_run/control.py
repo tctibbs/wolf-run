@@ -112,10 +112,13 @@ def apply_command(screen: Screen, name: str, t: float) -> None:
 
 
 def state_of(screen: Screen) -> dict[str, Any]:
-    """What GET /state reports: the stage, plus the house (1 to 3) while playing."""
+    """What GET /state reports: the stage, plus the house (1 to 3) while playing,
+    and whether each pig is home (left to right) when the screen watches them."""
     state: dict[str, Any] = {"stage": screen.stage.value}
     if screen.stage is Stage.GAME and screen.game is not None:
         state["house"] = screen.game.level + 1
+    if screen.building is not None:
+        state["pigs_home"] = list(screen.building.up)
     return state
 
 

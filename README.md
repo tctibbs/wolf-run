@@ -35,6 +35,17 @@ saves one frame (`--at` a time, `--seconds` into the animation, `--primed`).
 For the camera at the end, copy `.env.example` to `.env` and fill in your RTSP
 camera. `uv run wolf-run camera-check` tells you if it's working.
 
+## The pigs' houses
+
+The three little houses on the clock can stand for the pigs being home. Set
+`PIG_HOUSES_URL` in `.env` to something with a `GET /state` that lists three
+houses, left to right, each with the `pig` sitting on it and the `owner` it belongs
+to (mine is an ESP32 with an NFC reader under each of three little houses). The
+screen asks every half second. Each house, straw, stick, then brick, rises from the
+ground while its own pig sits on it, comes back down when the pig is lifted off, and
+is just a staked-out plot in between. Once the wolf wakes they all stand. Without
+`PIG_HOUSES_URL` the houses are always up.
+
 ## Power cuts
 
 The screen remembers where it was: the clock, the wolf awake, the house the chase
@@ -71,7 +82,8 @@ its address when it starts. Then:
 
 - `GET /state` says where the screen is, like `{"stage": "game", "house": 2}`. The
   stage is `clock`, `primed`, `game`, or `camera`, and `house` (1 to 3) is only there
-  during the game. It also says `"card": "reading"` or `"waiting"`, with
+  during the game. With `PIG_HOUSES_URL` set, `pigs_home` says which houses have
+  their pig, left to right, like `[true, false, true]`. It also says `"card": "reading"` or `"waiting"`, with
   `card_corners` (as `/card` sent them, while it reads) and `card_spot` (the outline's
   box, once there is one).
 - `POST /prime` wakes the wolf, `POST /skip` skips to the brick house, and

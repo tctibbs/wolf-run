@@ -13,6 +13,7 @@ from typing import Any
 
 from wolf_run import camera_scene, clock, game_scene
 from wolf_run.game import LEVELS, STEPS_PER_SECOND, Game
+from wolf_run.pigs import Building
 from wolf_run.pixels import Canvas
 
 MAX_CATCH_UP = 10  # steps; after a long stall, skip ahead rather than fast-forward
@@ -33,6 +34,7 @@ class Screen:
     seed: int | None = None
     demo: bool = False
     resume_level: int = 0  # where the next game starts: a house reached before
+    building: Building | None = None  # the pigs' houses while the wolf sleeps
     _clock: float = field(default=0.0, repr=False)
 
     def prime(self, t: float) -> bool:
@@ -117,9 +119,10 @@ class Screen:
             game_scene.draw_game(canvas, self.game, now, t)
         elif self.stage is Stage.CAMERA:
             camera_scene.draw_camera_osd(canvas, now, t, live=False)
+        elif self.stage is Stage.PRIMED:
+            clock.draw_clock(canvas, now, t, self.since)  # every pig home: all up
         else:
-            primed_at = self.since if self.stage is Stage.PRIMED else None
-            clock.draw_clock(canvas, now, t, primed_at)
+            clock.draw_clock(canvas, now, t, building=self.building)
 
     def _start_game(self, t: float) -> None:
         self.game = Game(rng=random.Random(self.seed), demo=self.demo)

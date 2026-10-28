@@ -36,7 +36,7 @@ from PyQt5.QtGui import (
 )
 from PyQt5.QtWidgets import QApplication, QWidget
 
-from wolf_run import camera_scene, card, clock, control, memory
+from wolf_run import camera_scene, card, clock, control, memory, pigs
 from wolf_run.camera import CameraFeed
 from wolf_run.pixels import Canvas
 from wolf_run.stages import Screen, Stage
@@ -195,11 +195,15 @@ class ScreenWindow(QWidget):
         place_file: Path | None = None,
         card_spot: card.CardSpot | None = None,
         sightings: control.Sightings | None = None,
+        pig_watch: pigs.PigWatch | None = None,
     ) -> None:
         super().__init__()
         self._card_spot, self._sightings = card_spot, sightings
         self.setWindowTitle("Wolf Run")
         self.screen = screen or Screen()
+        self._pig_watch = pig_watch
+        if pig_watch is not None and self.screen.building is None:
+            self.screen.building = pigs.Building()
         self._place_file = place_file
         if place_file is not None:
             self.screen.restore(memory.load(place_file), 0.0)
@@ -224,6 +228,8 @@ class ScreenWindow(QWidget):
     def tick(self) -> None:
         t, now = self.elapsed(), self._now()
         self._take_commands(t)
+        if self._pig_watch is not None and self.screen.building is not None:
+            self.screen.building.follow(self._pig_watch.home(), t)
         self.screen.update(t)
         control.publish(self.status, self.screen)
         self._remember()
@@ -362,6 +368,11 @@ def warm_caches(now: datetime | None = None) -> None:
             screen.prime(0.0)
         for i in range(0, 90, 3):
             render(screen.draw, now, i / 30)
+    building = pigs.Building()  # every height of every house, going up
+    building.follow(pigs.ALL_UP, 0.0)
+    screen = Screen(building=building)
+    for i in range(round(pigs.BUILD_SECONDS * FPS) + 1):
+        render(screen.draw, now, i / FPS)
     for level in range(len(LEVELS)):
         screen = Screen(seed=level, demo=True)
         screen.prime(0.0)
@@ -409,9 +420,13 @@ def run(
 ) -> int:  # pragma: no cover
     """Show the screen until the host quits it, primed from the start if asked.
     With a commands queue and a status dict, the network control drives it too.
-    It picks up where it was before a power cut (memory.py)."""
+    It picks up where it was before a power cut (memory.py), and builds the pigs'
+    houses as they come home when PIG_HOUSES_URL is set (pigs.py)."""
     app = ensure_app()
     warm_caches()
+    pig_watch = pigs.watch_from_env()
+    if pig_watch is not None:
+        pig_watch.start()
     window = ScreenWindow(
         feed_factory=camera_feed_factory(),
         windowed=windowed,
@@ -420,6 +435,7 @@ def run(
         place_file=memory.path_from_env(),
         card_spot=card_spot or card.spot_from_env(),
         sightings=sightings,
+        pig_watch=pig_watch,
     )
     if primed:
         window.screen.prime(window.elapsed())
