@@ -43,8 +43,10 @@ houses, left to right, each with the `pig` sitting on it and the `owner` it belo
 to (mine is an ESP32 with an NFC reader under each of three little houses). The
 screen asks every half second. Each house, straw, stick, then brick, rises from the
 ground while its own pig sits on it, comes back down when the pig is lifted off, and
-is just a staked-out plot in between. Once the wolf wakes they all stand. Without
-`PIG_HOUSES_URL` the houses are always up.
+is just a staked-out plot in between. Once all three stand, the wolf wakes, the same
+as Ctrl+P, so every pig home always means the wolf is up (lift one to put him back to
+sleep after a reset). Once he's awake they all stand. Without `PIG_HOUSES_URL` the
+houses are always up.
 
 ## Power cuts
 

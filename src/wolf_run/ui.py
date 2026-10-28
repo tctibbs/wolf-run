@@ -228,8 +228,8 @@ class ScreenWindow(QWidget):
     def tick(self) -> None:
         t, now = self.elapsed(), self._now()
         self._take_commands(t)
-        if self._pig_watch is not None and self.screen.building is not None:
-            self.screen.building.follow(self._pig_watch.home(), t)
+        if self._pig_watch is not None:
+            self.screen.follow_pigs(self._pig_watch.home(), t)
         self.screen.update(t)
         control.publish(self.status, self.screen)
         self._remember()

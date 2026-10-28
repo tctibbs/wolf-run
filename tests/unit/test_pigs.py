@@ -172,3 +172,38 @@ def test_the_state_says_which_pigs_are_home():
     screen.building.follow((True, False, True), 0.0)
 
     assert control.state_of(screen)["pigs_home"] == [True, False, True]
+
+
+def test_the_wolf_wakes_once_every_house_stands():
+    screen = Screen(building=pigs.Building())
+
+    screen.follow_pigs(pigs.ALL_UP, 1.0)
+    screen.follow_pigs(pigs.ALL_UP, 1.0 + pigs.BUILD_SECONDS / 2)
+    assert screen.stage.value == "clock"  # still going up
+    screen.follow_pigs(pigs.ALL_UP, 1.0 + pigs.BUILD_SECONDS)
+    assert screen.stage.value == "primed"
+
+
+def test_the_wolf_sleeps_while_a_pig_is_away():
+    screen = Screen(building=pigs.Building())
+
+    screen.follow_pigs((True, True, False), 0.0)
+    screen.follow_pigs((True, True, False), 5.0)
+    assert screen.stage.value == "clock"
+
+
+def test_a_reset_with_every_pig_home_wakes_him_again():
+    screen = Screen(building=pigs.Building())
+    screen.follow_pigs(pigs.ALL_UP, 0.0)
+    screen.follow_pigs(pigs.ALL_UP, 2.0)
+    screen.reset(3.0)
+
+    screen.follow_pigs(pigs.ALL_UP, 3.1)
+    assert screen.stage.value == "primed"
+
+
+def test_without_the_pigs_the_wolf_waits_for_the_host():
+    screen = Screen()
+
+    screen.follow_pigs(pigs.ALL_UP, 5.0)
+    assert screen.stage.value == "clock"

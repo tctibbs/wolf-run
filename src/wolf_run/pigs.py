@@ -5,7 +5,8 @@ an ESP32 with an NFC reader under each of three little houses). The screen asks 
 GET /state every half second: a "houses" list, left to right, each with the "pig"
 sitting on it and the "owner" it belongs to. The straw, stick, and brick house, from
 the left, go up from the ground while their own pig sits on them, and come back down
-when it's lifted off. Without PIG_HOUSES_URL every house stays up, as it always was.
+when it's lifted off. Once all three stand, the wolf wakes. Without PIG_HOUSES_URL
+every house stays up, as it always was.
 """
 
 import http.client
@@ -107,6 +108,10 @@ class Building:
             done = self.height(i, t)
             self.up[i] = bool(now)
             self.changed[i] = t - (done if now else 1 - done) * BUILD_SECONDS
+
+    def all_standing(self, t: float) -> bool:
+        """Every house up and finished."""
+        return all(self.height(i, t) >= 1 for i in range(HOUSES))
 
     def height(self, i: int, t: float) -> float:
         """How much of house `i` stands, from 0 (a bare plot) to 1 (all of it)."""

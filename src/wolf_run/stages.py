@@ -6,6 +6,7 @@ drawn with, so a stage always knows how long it has been showing.
 """
 
 import random
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -43,6 +44,15 @@ class Screen:
             return False
         self._enter(Stage.PRIMED, t)
         return True
+
+    def follow_pigs(self, home: Sequence[bool], t: float) -> None:
+        """Build and take down the pigs' houses as the pigs come and go, and wake the
+        wolf once all three stand: every pig home means the wolf is up."""
+        if self.building is None:
+            return
+        self.building.follow(home, t)
+        if self.stage is Stage.CLOCK and self.building.all_standing(t):
+            self.prime(t)
 
     def press(self, t: float) -> list[str]:
         """Any button went down. Starts the game once primed; jumps after that."""
