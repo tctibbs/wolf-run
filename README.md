@@ -8,7 +8,7 @@ a small touchscreen that sits in the living room.
 Most of the night it's a clock, with the Big Bad Wolf asleep in the corner. When it's
 time, he wakes up and the screen asks for a button. Press it and you're the wolf,
 chasing Grandma as she runs to the straw house, then the stick house, then the brick
-house. It plays a lot like the Chrome dinosaur game: tap to hop, hold to jump higher,
+house. It plays a lot like the Chrome dinosaur game: press to hop, hold to jump higher,
 and each house is faster than the last. Catch her and the screen cuts to a live
 camera.
 
@@ -27,10 +27,12 @@ uv sync
 uv run wolf-run screen --windowed
 ```
 
-Ctrl+P (Cmd+P on a Mac) wakes the wolf, then any key plays. Ctrl+E skips to the brick
-house, Ctrl+R resets, and Ctrl+Q quits (Esc too, in a window). `--primed` (or
-`WOLF_RUN_PRIMED=1`) starts with the wolf already awake. `uv run wolf-run screenshot`
-saves one frame (`--at` a time, `--seconds` into the animation, `--primed`).
+Ctrl+P (Cmd+P on a Mac) wakes the wolf, then any key plays. Touching or clicking the
+screen does nothing, so the touchscreen can never stand in for the button. Ctrl+E
+skips to the brick house, Ctrl+R resets, and Ctrl+Q quits (Esc too, in a window).
+`--primed` (or `WOLF_RUN_PRIMED=1`) starts with the wolf already awake.
+`uv run wolf-run screenshot` saves one frame (`--at` a time, `--seconds` into the
+animation, `--primed`).
 
 For the camera at the end, copy `.env.example` to `.env` and fill in your RTSP
 camera. `uv run wolf-run camera-check` tells you if it's working.

@@ -2,10 +2,13 @@ from datetime import datetime
 
 import numpy as np
 import pytest
-from PyQt5.QtCore import QEvent, QPointF, QRect, Qt
-from PyQt5.QtGui import QColor, QImage, QKeyEvent, QMouseEvent
+from PyQt5.QtCore import QEvent, QPoint, QRect, Qt
+from PyQt5.QtGui import QColor, QImage, QKeyEvent, QTouchEvent
+from PyQt5.QtTest import QTest
+from PyQt5.QtWidgets import QApplication
 
 from wolf_run import camera_scene, card, clock, control, ui
+from wolf_run.game import CRASH_PAUSE, JUMP_SPEED, LEVELS, Phase
 from wolf_run.palette import NIGHT
 from wolf_run.stages import Stage
 
@@ -122,21 +125,83 @@ def test_held_keys_repeating_are_not_extra_presses():
     assert window.screen.stage is Stage.PRIMED
 
 
-def test_a_click_or_tap_is_a_button_too():
+def test_enter_from_the_red_button_starts_the_game_and_jumps():
     window = window_at(Ticker())
     window.screen.prime(0.0)
-    click = QMouseEvent(
-        QEvent.MouseButtonPress,
-        QPointF(5, 5),
-        Qt.LeftButton,
-        Qt.LeftButton,
-        Qt.NoModifier,
-    )
 
-    window.mousePressEvent(click)
+    window.keyPressEvent(key(Qt.Key_Return))
+    window.keyReleaseEvent(key(Qt.Key_Return, kind=QEvent.KeyRelease))
     assert window.screen.stage is Stage.GAME
-    window.mouseReleaseEvent(click)
+
+    window.screen.game._start_level(0)
+    window.keyPressEvent(key(Qt.Key_Enter))
+    window.keyPressEvent(
+        QKeyEvent(QEvent.KeyPress, Qt.Key_Enter, Qt.NoModifier, "", True)
+    )
+    assert (window.screen.game.holding, window.screen.game.vy) == (True, JUMP_SPEED)
+    window.keyReleaseEvent(key(Qt.Key_Enter, kind=QEvent.KeyRelease))
     assert not window.screen.game.holding
+
+
+def running(window):
+    window.screen.prime(0.0)
+    window.screen.press(0.0)
+    window.screen.release(0.0)
+    window.screen.game._start_level(0)
+
+
+def crashed(window):
+    running(window)
+    window.screen.game._enter(Phase.CRASH)
+    window.screen.game.phase_steps = CRASH_PAUSE + 1
+
+
+def ending(window):
+    running(window)
+    window.screen.game._start_level(len(LEVELS) - 1)
+    window.screen.game._enter(Phase.RUMMAGE)
+
+
+def watching(window):
+    window.screen.stage = Stage.CAMERA
+
+
+STATES = {
+    "clock": lambda window: None,
+    "primed": lambda window: window.screen.prime(0.0),
+    "game": running,
+    "crash": crashed,
+    "ending": ending,
+    "camera": watching,
+}
+
+
+def touch(window, kind, state):
+    """A touch event straight to the window (PyQt5 can't make the points)."""
+    QApplication.sendEvent(window, QTouchEvent(kind, None, Qt.NoModifier, state, []))
+
+
+@pytest.mark.parametrize("enter", STATES.values(), ids=STATES.keys())
+def test_touches_and_clicks_never_count_as_the_button(enter):
+    window = window_at(Ticker())
+    window.resize(ui.PANEL_W, ui.PANEL_H)
+    window.show()
+    enter(window)
+    before = repr(window.screen)
+    # Qt turns a touch it isn't asked to handle into these mouse events, sent
+    # through the same window as the Pi's touchscreen.
+    glass = window.windowHandle()
+    middle = QPoint(ui.PANEL_W // 2, ui.PANEL_H // 2)
+
+    QTest.mousePress(glass, Qt.LeftButton, Qt.NoModifier, middle)
+    assert repr(window.screen) == before  # held down: a long press
+    QTest.mouseRelease(glass, Qt.LeftButton, Qt.NoModifier, middle)
+    QTest.mouseDClick(glass, Qt.LeftButton, Qt.NoModifier, middle)
+    QTest.mouseClick(glass, Qt.RightButton, Qt.NoModifier, middle)
+    touch(window, QEvent.TouchBegin, Qt.TouchPointPressed)
+    touch(window, QEvent.TouchEnd, Qt.TouchPointReleased)
+
+    assert repr(window.screen) == before
 
 
 def test_ctrl_e_skips_to_the_brick_house():

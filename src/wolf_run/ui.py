@@ -4,8 +4,10 @@ Scenes draw onto a 256x150 image; the window scales it up with no smoothing, so
 the pixels stay square. On the Pi it runs full screen straight onto the
 framebuffer; on a Mac it runs in a 1024x600 window.
 
-Input: any key, click, or tap is "the button". The host's keys need Ctrl (Cmd on
-a Mac), so a guest mashing the keyboard can't trigger them:
+Input: any key is "the button" (the big red USB button sends Enter). Touches and
+clicks do nothing: the window has no mouse or touch handlers, so Qt drops them,
+and the touchscreen can never stand in for the button. The host's keys need Ctrl
+(Cmd on a Mac), so a guest mashing the keyboard can't trigger them:
 
     Ctrl+P  prime the screen       Ctrl+E  skip to the brick house
     Ctrl+R  back to the clock      Ctrl+Q  quit
@@ -30,7 +32,6 @@ from PyQt5.QtGui import (
     QColor,
     QImage,
     QKeyEvent,
-    QMouseEvent,
     QPainter,
     QPaintEvent,
 )
@@ -181,7 +182,7 @@ def fit(outer: QRect, w: int = clock.W, h: int = clock.H, whole: bool = True) ->
 
 
 class ScreenWindow(QWidget):
-    """Shows the screen's current stage and turns any button into a press."""
+    """Shows the screen's current stage and turns any key into a press."""
 
     def __init__(
         self,
@@ -324,12 +325,6 @@ class ScreenWindow(QWidget):
     def keyReleaseEvent(self, event: QKeyEvent) -> None:  # noqa: N802 - Qt's name
         if not event.isAutoRepeat():
             self.screen.release(self.elapsed())
-
-    def mousePressEvent(self, event: QMouseEvent) -> None:  # noqa: N802 - Qt's name
-        self.screen.press(self.elapsed())
-
-    def mouseReleaseEvent(self, event: QMouseEvent) -> None:  # noqa: N802 - Qt's name
-        self.screen.release(self.elapsed())
 
     def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802 - Qt's name
         if self.feed is not None:
